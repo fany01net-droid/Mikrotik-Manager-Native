@@ -7,6 +7,7 @@ import {
   modalSheetVariants,
   toastBannerVariants,
 } from './lib/motion';
+import { App as CapApp } from '@capacitor/app';
 import {
   Lock,
   User,
@@ -750,6 +751,7 @@ export default function App() {
   const [masterPassword, setMasterPassword] = useState('1');
   const [showMasterPassword, setShowMasterPassword] = useState(false);
   const [activeTab, setActiveTab] = useState<'beranda' | 'pppoe' | 'hotspot' | 'dhcp' | 'pengaturan'>('beranda');
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
 
   // Hotspot State [ User | Active | Profile ]
   const [hotspotSubTab, setHotspotSubTab] = useState<'user' | 'active' | 'profile'>('user');
@@ -2578,6 +2580,223 @@ export default function App() {
     setIsModalOpen(true);
   };
 
+  /* ============================================================= */
+  /* ANDROID NAVIGATION, BACK BUTTON & VIRTUAL KEYBOARD CONTROLLER */
+  /* ============================================================= */
+  const lastBackPressRef = useRef<number>(0);
+
+  // Android Virtual Keyboard Detection (auto-hides bottom bar)
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const onResize = () => {
+      const diff = window.innerHeight - vv.height;
+      setIsKeyboardOpen(diff > 140);
+    };
+    vv.addEventListener('resize', onResize);
+    return () => vv.removeEventListener('resize', onResize);
+  }, []);
+
+  // Ref tracking current navigation and overlay state for back button handling
+  const navigationStateRef = useRef({
+    deletingRouterTarget,
+    isLogoutConfirmOpen,
+    isModalOpen,
+    selectedSecretId,
+    isAddUserModalOpen,
+    isProfileModalOpen,
+    selectedHotspotUser,
+    isAddHotspotUserModalOpen,
+    isHotspotProfileModalOpen,
+    selectedLease,
+    filterMenuOpen,
+    hotspotUserFilterOpen,
+    dhcpFilterMenuOpen,
+    activeTab,
+  });
+
+  useEffect(() => {
+    navigationStateRef.current = {
+      deletingRouterTarget,
+      isLogoutConfirmOpen,
+      isModalOpen,
+      selectedSecretId,
+      isAddUserModalOpen,
+      isProfileModalOpen,
+      selectedHotspotUser,
+      isAddHotspotUserModalOpen,
+      isHotspotProfileModalOpen,
+      selectedLease,
+      filterMenuOpen,
+      hotspotUserFilterOpen,
+      dhcpFilterMenuOpen,
+      activeTab,
+    };
+  }, [
+    deletingRouterTarget,
+    isLogoutConfirmOpen,
+    isModalOpen,
+    selectedSecretId,
+    isAddUserModalOpen,
+    isProfileModalOpen,
+    selectedHotspotUser,
+    isAddHotspotUserModalOpen,
+    isHotspotProfileModalOpen,
+    selectedLease,
+    filterMenuOpen,
+    hotspotUserFilterOpen,
+    dhcpFilterMenuOpen,
+    activeTab,
+  ]);
+
+  const handleAndroidBack = useCallback(() => {
+    const s = navigationStateRef.current;
+
+    // 1. Critical Confirmation Dialogs
+    if (s.deletingRouterTarget) {
+      setDeletingRouterTarget(null);
+      return true;
+    }
+    if (s.isLogoutConfirmOpen) {
+      setIsLogoutConfirmOpen(false);
+      return true;
+    }
+
+    // 2. Add / Edit MikroTik Router Drawer (The one user specifically mentioned!)
+    if (s.isModalOpen) {
+      closeModal();
+      return true;
+    }
+
+    // 3. PPPoE Modals
+    if (s.selectedSecretId) {
+      setSelectedSecretId(null);
+      setEditingExpiryDate(null);
+      setEditingProfile(null);
+      return true;
+    }
+    if (s.isAddUserModalOpen) {
+      setIsAddUserModalOpen(false);
+      return true;
+    }
+    if (s.isProfileModalOpen) {
+      setIsProfileModalOpen(false);
+      return true;
+    }
+
+    // 4. Hotspot Modals
+    if (s.selectedHotspotUser) {
+      setSelectedHotspotUser(null);
+      return true;
+    }
+    if (s.isAddHotspotUserModalOpen) {
+      setIsAddHotspotUserModalOpen(false);
+      return true;
+    }
+    if (s.isHotspotProfileModalOpen) {
+      setIsHotspotProfileModalOpen(false);
+      return true;
+    }
+
+    // 5. DHCP Sheet
+    if (s.selectedLease) {
+      setSelectedLease(null);
+      return true;
+    }
+
+    // 6. Filter Menus & Dropdowns
+    if (s.filterMenuOpen) {
+      setFilterMenuOpen(false);
+      return true;
+    }
+    if (s.hotspotUserFilterOpen) {
+      setHotspotUserFilterOpen(false);
+      return true;
+    }
+    if (s.dhcpFilterMenuOpen) {
+      setDhcpFilterMenuOpen(false);
+      return true;
+    }
+
+    // 7. Tab fallback: If not on 'beranda', back returns to 'beranda'
+    if (s.activeTab !== 'beranda') {
+      setActiveTab('beranda');
+      return true;
+    }
+
+    // 8. On Home Tab: Double-press back to exit app
+    const now = Date.now();
+    if (now - lastBackPressRef.current < 2000) {
+      try {
+        CapApp.exitApp();
+      } catch {
+        // Fallback for web
+      }
+      return true;
+    } else {
+      lastBackPressRef.current = now;
+      showToast('Tekan sekali lagi untuk keluar dari FNet', 'info');
+      return true;
+    }
+  }, [closeModal, showToast]);
+
+  // Synchronize history state for browser / PWA swipe gestures
+  useEffect(() => {
+    const isAnyModalOpen =
+      isModalOpen ||
+      !!deletingRouterTarget ||
+      isLogoutConfirmOpen ||
+      isAddUserModalOpen ||
+      !!selectedSecretId ||
+      isProfileModalOpen ||
+      isAddHotspotUserModalOpen ||
+      !!selectedHotspotUser ||
+      isHotspotProfileModalOpen ||
+      !!selectedLease;
+
+    if (isAnyModalOpen) {
+      window.history.pushState({ fnetModal: true }, '');
+    }
+  }, [
+    isModalOpen,
+    deletingRouterTarget,
+    isLogoutConfirmOpen,
+    isAddUserModalOpen,
+    selectedSecretId,
+    isProfileModalOpen,
+    isAddHotspotUserModalOpen,
+    selectedHotspotUser,
+    isHotspotProfileModalOpen,
+    selectedLease,
+  ]);
+
+  // Register Capacitor native Android hardware/gesture back button & web popstate
+  useEffect(() => {
+    let listenerHandle: { remove: () => void } | null = null;
+
+    try {
+      CapApp.addListener('backButton', () => {
+        handleAndroidBack();
+      }).then((handle) => {
+        listenerHandle = handle;
+      });
+    } catch {
+      // In web browser environment
+    }
+
+    const handlePopState = () => {
+      handleAndroidBack();
+    };
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      if (listenerHandle) {
+        listenerHandle.remove();
+      }
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [handleAndroidBack]);
+
   const handlePingIp = async () => {
     const rawIp = mikrotikIp.trim();
     if (!rawIp || isPinging) return;
@@ -3398,23 +3617,34 @@ export default function App() {
               </button>
 
               {/* MODAL TAMBAH / EDIT MIKROTIK (APPLE iOS HIG STYLE) */}
-              {isModalOpen && (
-                <div
-                  className="relative z-50"
-                  aria-labelledby="modal-title"
-                  role="dialog"
-                  aria-modal="true"
-                >
-                  {/* Backdrop Blur */}
+              <AnimatePresence>
+                {isModalOpen && (
                   <div
-                    className="fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity"
-                    onClick={closeModal}
-                  ></div>
+                    className="relative z-50"
+                    aria-labelledby="modal-title"
+                    role="dialog"
+                    aria-modal="true"
+                  >
+                    {/* Backdrop Blur */}
+                    <motion.div
+                      variants={modalBackdropVariants}
+                      initial="initial"
+                      animate="animate"
+                      exit="exit"
+                      className="fixed inset-0 bg-black/40 backdrop-blur-sm"
+                      onClick={closeModal}
+                    />
 
-                  {/* Modal Container */}
-                  <div className="fixed inset-0 z-50 w-screen overflow-y-auto">
-                    <div className="flex min-h-full items-end sm:items-center justify-center p-0 sm:p-4">
-                      <div className="relative transform overflow-hidden rounded-t-[32px] sm:rounded-3xl bg-apple-card text-left shadow-[0_-10px_40px_rgba(0,0,0,0.14)] sm:shadow-ios-modal transition-all my-0 sm:my-auto w-full max-w-lg border-t sm:border border-black/[0.08] max-h-[92vh] sm:max-h-[85vh] flex flex-col animate-in slide-in-from-bottom duration-300 ease-out sm:zoom-in-95">
+                    {/* Modal Container */}
+                    <div className="fixed inset-0 z-50 w-screen overflow-y-auto">
+                      <div className="flex min-h-full items-end sm:items-center justify-center p-0 sm:p-4">
+                        <motion.div
+                          variants={modalSheetVariants}
+                          initial="initial"
+                          animate="animate"
+                          exit="exit"
+                          className="relative transform overflow-hidden rounded-t-[32px] sm:rounded-3xl bg-apple-card text-left shadow-[0_-10px_40px_rgba(0,0,0,0.14)] sm:shadow-ios-modal my-0 sm:my-auto w-full max-w-lg border-t sm:border border-black/[0.08] max-h-[92vh] sm:max-h-[85vh] flex flex-col"
+                        >
                         {/* iOS Drawer Grabber Handle */}
                         <div className="w-full pt-3 pb-1 flex justify-center sm:hidden bg-[#fbfbfd] shrink-0">
                           <div className="w-10 h-1.5 rounded-full bg-black/20" />
@@ -3617,12 +3847,13 @@ export default function App() {
                             </button>
                           </div>
                         </form>
-                      </div>
+                      </motion.div>
                     </div>
                   </div>
                 </div>
               )}
-            </motion.div>
+            </AnimatePresence>
+          </motion.div>
           ) : activeTab === 'pppoe' ? (
             /* ============================================================= */
             /* HALAMAN PPPOE: APPLE SEGMENTED CONTROL [ USER | PROFILE | ACTIVE ] */
@@ -8126,7 +8357,9 @@ export default function App() {
       {/* Mobile Style Bottom Bar */}
       <nav
         aria-label="Navigasi Utama"
-        className="fixed bottom-0 left-0 right-0 z-30 bg-white/90 backdrop-blur-xl saturate-150 border-t border-black/[0.05] shadow-[0_-4px_16px_rgba(0,0,0,0.04)] pb-[env(safe-area-inset-bottom)] shrink-0 transition-all"
+        className={`fixed bottom-0 left-0 right-0 z-30 bg-white/90 backdrop-blur-xl saturate-150 border-t border-black/[0.05] shadow-[0_-4px_16px_rgba(0,0,0,0.04)] pb-[env(safe-area-inset-bottom)] shrink-0 transition-transform duration-200 ease-out ${
+          isKeyboardOpen ? 'translate-y-full opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'
+        }`}
       >
         <div className="max-w-lg mx-auto grid grid-cols-5 h-14 px-1 sm:px-2">
           <motion.button
