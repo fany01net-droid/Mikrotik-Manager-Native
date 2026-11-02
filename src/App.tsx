@@ -1411,6 +1411,7 @@ export default function App() {
 
   const isFetchingDashboardRef = useRef(false);
   const isFetchingPppoeRef = useRef(false);
+  const lastDashboardErrorTimeRef = useRef<number>(0);
 
   // Router ID tracking ref to eliminate race conditions when user switches router
   const selectedMikrotikIdRef = useRef<string | null>(selectedMikrotikId);
@@ -1463,7 +1464,7 @@ export default function App() {
   }, [demoSecrets]);
 
   // READ-ONLY (Strictly GET requests only) Fetching for Dashboard ONLY
-  const fetchDashboardData = useCallback(async () => {
+  const fetchDashboardData = useCallback(async (isManual: boolean = false) => {
     if (isFetchingDashboardRef.current) return;
     const profile = getSelectedProfile();
     if (!profile) {
@@ -1586,10 +1587,24 @@ export default function App() {
         setSyncStatus('connected');
       } else {
         setSyncStatus('error');
+        const reason =
+          resResource.status === 'rejected'
+            ? resResource.reason?.message || 'Gagal koneksi ke router'
+            : 'Gagal memuat data Dashboard';
+        const now = Date.now();
+        if (isManual || now - lastDashboardErrorTimeRef.current > 10000) {
+          lastDashboardErrorTimeRef.current = now;
+          showToast(`Gagal memuat data Dashboard: ${reason}`, 'error');
+        }
       }
-    } catch {
+    } catch (err: any) {
       if (selectedMikrotikIdRef.current === currentProfileId) {
         setSyncStatus('error');
+        const now = Date.now();
+        if (isManual || now - lastDashboardErrorTimeRef.current > 10000) {
+          lastDashboardErrorTimeRef.current = now;
+          showToast(`Gagal memuat data Dashboard: ${err?.message || 'Error koneksi'}`, 'error');
+        }
       }
     } finally {
       isFetchingDashboardRef.current = false;
@@ -1700,10 +1715,17 @@ export default function App() {
         setSyncStatus('connected');
       } else {
         setSyncStatus('error');
+        const reason =
+          (resPppSecrets.status === 'rejected' && resPppSecrets.reason?.message) ||
+          (resPppProfiles.status === 'rejected' && resPppProfiles.reason?.message) ||
+          (resPppActive.status === 'rejected' && resPppActive.reason?.message) ||
+          'Gagal menghubungi router';
+        showToast(`Gagal memuat data PPPoE: ${reason}`, 'error');
       }
-    } catch {
+    } catch (err: any) {
       if (selectedMikrotikIdRef.current === currentProfileId) {
         setSyncStatus('error');
+        showToast(`Gagal memuat data PPPoE: ${err?.message || 'Error koneksi'}`, 'error');
       }
     } finally {
       isFetchingPppoeRef.current = false;
@@ -1859,21 +1881,34 @@ export default function App() {
 
       if (selectedMikrotikIdRef.current !== currentProfileId) return;
 
-      const duration = Math.round(performance.now() - startTime);
-      setLastLatency(duration);
+      if (
+        resUsers.status === 'fulfilled' ||
+        resActive.status === 'fulfilled' ||
+        resProfiles.status === 'fulfilled'
+      ) {
+        const duration = Math.round(performance.now() - startTime);
+        setLastLatency(duration);
 
-      if (resUsers.status === 'fulfilled' && Array.isArray(resUsers.value)) {
-        setHotspotUsers(resUsers.value.filter((u) => !isHiddenDefaultUser(u.name)));
-      }
-      if (resActive.status === 'fulfilled' && Array.isArray(resActive.value)) {
-        setHotspotActive(resActive.value);
-      }
-      if (resProfiles.status === 'fulfilled' && Array.isArray(resProfiles.value)) {
-        setHotspotProfiles(resProfiles.value.filter((p) => !isHiddenDefaultProfile(p.name)));
+        if (resUsers.status === 'fulfilled' && Array.isArray(resUsers.value)) {
+          setHotspotUsers(resUsers.value.filter((u) => !isHiddenDefaultUser(u.name)));
+        }
+        if (resActive.status === 'fulfilled' && Array.isArray(resActive.value)) {
+          setHotspotActive(resActive.value);
+        }
+        if (resProfiles.status === 'fulfilled' && Array.isArray(resProfiles.value)) {
+          setHotspotProfiles(resProfiles.value.filter((p) => !isHiddenDefaultProfile(p.name)));
+        }
+      } else {
+        const reason =
+          (resUsers.status === 'rejected' && resUsers.reason?.message) ||
+          (resProfiles.status === 'rejected' && resProfiles.reason?.message) ||
+          (resActive.status === 'rejected' && resActive.reason?.message) ||
+          'Gagal menghubungi router';
+        showToast(`Gagal memuat data Hotspot: ${reason}`, 'error');
       }
     } catch (err: any) {
       if (selectedMikrotikIdRef.current === currentProfileId) {
-        showToast(`Gagal memuat data Hotspot: ${err?.message || 'Error'}`, 'error');
+        showToast(`Gagal memuat data Hotspot: ${err?.message || 'Error koneksi'}`, 'error');
       }
     } finally {
       isFetchingHotspotRef.current = false;
@@ -2930,9 +2965,14 @@ export default function App() {
                     <button
                       type="button"
                       onClick={() => {
+                        const profile = getSelectedProfile();
+                        if (!profile) {
+                          showToast('Pilih perangkat MikroTik terlebih dahulu di Pengaturan.', 'error');
+                          return;
+                        }
                         if (activeTab === 'beranda') {
                           setIsDashboardRefreshing(true);
-                          fetchDashboardData();
+                          fetchDashboardData(true);
                         } else if (activeTab === 'pppoe') {
                           fetchPppoeData();
                         } else if (activeTab === 'hotspot') {
