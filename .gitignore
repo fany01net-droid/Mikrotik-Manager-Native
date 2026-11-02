@@ -44,3 +44,6 @@ android/captures
 android/.idea
 android/*.iml
 android/app/*.iml
+
+build-output/
+public/*.apk
