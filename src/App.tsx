@@ -2876,46 +2876,71 @@ export default function App() {
 
             {/* Right Action: Tombol Refresh (saat di PPPoE, Hotspot, atau DHCP) & Icon Logout */}
             <div className="flex items-center gap-1.5 sm:gap-2">
-              {(activeTab === 'pppoe' || activeTab === 'hotspot' || activeTab === 'dhcp') && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (activeTab === 'pppoe') fetchPppoeData();
-                    else if (activeTab === 'hotspot') fetchHotspotData();
-                    else if (activeTab === 'dhcp') fetchDhcpData();
-                  }}
-                  disabled={isPppRefreshing || isHotspotRefreshing || isDhcpRefreshing}
-                  className="h-10 w-10 sm:h-9 sm:w-9 min-h-[48px] min-w-[48px] sm:min-h-[36px] sm:min-w-[36px] rounded-full flex items-center justify-center text-apple-subtext hover:text-apple-blue bg-black/[0.03] hover:bg-black/[0.06] active:scale-95 transition-transform disabled:opacity-60"
-                  title={
-                    activeTab === 'pppoe'
-                      ? 'Segarkan data PPPoE'
-                      : activeTab === 'hotspot'
-                      ? 'Segarkan data Hotspot'
-                      : 'Segarkan data DHCP Leases'
-                  }
-                  aria-label={
-                    activeTab === 'pppoe'
-                      ? 'Segarkan data PPPoE'
-                      : activeTab === 'hotspot'
-                      ? 'Segarkan data Hotspot'
-                      : 'Segarkan data DHCP Leases'
-                  }
-                >
-                  <RefreshCw
-                    className={`h-4 w-4 ${
-                      (isPppRefreshing || isHotspotRefreshing || isDhcpRefreshing) ? 'animate-spin text-apple-blue' : ''
+              {(activeTab === 'pppoe' || activeTab === 'hotspot' || activeTab === 'dhcp') && (() => {
+                const isRefreshing = isPppRefreshing || isHotspotRefreshing || isDhcpRefreshing;
+                return (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (activeTab === 'pppoe') fetchPppoeData();
+                      else if (activeTab === 'hotspot') fetchHotspotData();
+                      else if (activeTab === 'dhcp') fetchDhcpData();
+                    }}
+                    disabled={isRefreshing}
+                    className={`h-8 w-8 rounded-full flex items-center justify-center transition-all active:scale-90 shrink-0 ${
+                      isRefreshing
+                        ? 'bg-apple-blue/10 text-apple-blue cursor-wait'
+                        : 'text-apple-subtext hover:text-apple-blue bg-black/[0.04] hover:bg-black/[0.08]'
                     }`}
-                  />
-                </button>
-              )}
+                    title={
+                      activeTab === 'pppoe'
+                        ? 'Segarkan data PPPoE'
+                        : activeTab === 'hotspot'
+                        ? 'Segarkan data Hotspot'
+                        : 'Segarkan data DHCP Leases'
+                    }
+                    aria-label={
+                      activeTab === 'pppoe'
+                        ? 'Segarkan data PPPoE'
+                        : activeTab === 'hotspot'
+                        ? 'Segarkan data Hotspot'
+                        : 'Segarkan data DHCP Leases'
+                    }
+                  >
+                    {isRefreshing ? (
+                      <svg
+                        className="h-3.5 w-3.5 animate-spin text-apple-blue"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="3"
+                        />
+                        <path
+                          className="opacity-100"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        />
+                      </svg>
+                    ) : (
+                      <RefreshCw className="h-3.5 w-3.5 stroke-[2.2]" />
+                    )}
+                  </button>
+                );
+              })()}
               <button
                 type="button"
                 onClick={handleLogout}
-                className="h-10 w-10 sm:h-9 sm:w-9 min-h-[48px] min-w-[48px] sm:min-h-[36px] sm:min-w-[36px] rounded-full flex items-center justify-center text-rose-600 bg-rose-500/10 hover:bg-rose-500/20 active:scale-95 transition-all"
+                className="h-8 w-8 rounded-full flex items-center justify-center text-rose-600 bg-rose-500/10 hover:bg-rose-500/20 active:scale-90 transition-all shrink-0"
                 title="Keluar dari akun"
                 aria-label="Keluar dari akun"
               >
-                <LogOut className="h-4 w-4" />
+                <LogOut className="h-3.5 w-3.5 stroke-[2.2]" />
               </button>
             </div>
           </div>
