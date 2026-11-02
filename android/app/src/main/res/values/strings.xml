@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">FNet MikroTik Monitor</string>
+    <string name="title_activity_main">FNet MikroTik Monitor</string>
+    <string name="package_name">com.fnet.mikrotik</string>
+    <string name="custom_url_scheme">com.fnet.mikrotik</string>
+</resources>
