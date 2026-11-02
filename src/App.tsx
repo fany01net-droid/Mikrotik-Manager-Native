@@ -2931,12 +2931,12 @@ export default function App() {
             /* ============================================================= */
             <div className="space-y-2.5 sm:space-y-3.5 w-full max-w-2xl mx-auto animate-in fade-in duration-300">
               {/* Langsung List MikroTik */}
-              <section className="bg-apple-card rounded-2xl sm:rounded-3xl border border-black/[0.08] shadow-apple overflow-hidden flex flex-col">
-                <div className="px-3.5 py-2.5 sm:px-4 sm:py-3 border-b border-black/[0.04] bg-[#fbfbfd] flex items-center justify-between shrink-0">
-                  <span className="text-xs font-semibold text-apple-subtext uppercase tracking-wider">
+              <section className="bg-white rounded-2xl sm:rounded-3xl border border-black/[0.08] shadow-apple overflow-hidden flex flex-col">
+                <div className="px-4 py-2.5 sm:px-5 sm:py-3 border-b border-black/[0.04] bg-[#fbfbfd] flex items-center justify-between shrink-0">
+                  <span className="text-[11px] font-bold text-apple-subtext uppercase tracking-wider">
                     Daftar Perangkat MikroTik:
                   </span>
-                  <span className="text-xs font-semibold text-apple-subtext uppercase tracking-wider">
+                  <span className="text-[11px] font-bold text-apple-subtext uppercase tracking-wider font-mono">
                     {mikrotikList.length} Perangkat
                   </span>
                 </div>
@@ -2957,9 +2957,9 @@ export default function App() {
                     <button
                       type="button"
                       onClick={handleOpenAddModal}
-                      className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-apple-blue px-5 py-2 text-xs font-medium text-white hover:bg-apple-blueHover transition-all"
+                      className="mt-3 inline-flex items-center gap-1.5 rounded-2xl bg-apple-blue px-5 py-2.5 text-xs font-semibold text-white shadow-xs hover:bg-apple-blueHover active:scale-95 transition-all min-h-[48px]"
                     >
-                      <Plus className="h-4 w-4" />
+                      <Plus className="h-4 w-4 stroke-[2.5]" />
                       <span>Tambah MikroTik</span>
                     </button>
                   </div>
@@ -2970,7 +2970,7 @@ export default function App() {
                       return (
                         <div
                           key={item.id}
-                          className={`px-3.5 py-2 sm:px-4 sm:py-2.5 flex items-center justify-between gap-2.5 transition-all ${
+                          className={`px-4 py-2.5 sm:px-5 sm:py-3 flex items-center justify-between gap-3 transition-all ${
                             isSelected
                               ? 'bg-apple-blue/[0.03]'
                               : 'bg-white hover:bg-apple-lightGray/60'
@@ -3715,7 +3715,7 @@ export default function App() {
               {pppSubTab === 'user' && (
                 <div className="space-y-2.5 sm:space-y-3">
                   {/* Apple Inset Grouped Table View */}
-                  <section className="bg-white rounded-2xl sm:rounded-3xl border border-black/[0.08] shadow-[0_2px_12px_rgba(0,0,0,0.03)] overflow-hidden flex flex-col">
+                  <section className="bg-white rounded-2xl sm:rounded-3xl border border-black/[0.08] shadow-apple overflow-hidden flex flex-col">
                     {(() => {
                       const activeMap = new Map<string, DemoActive>();
                       for (const act of demoActive) {
@@ -3745,10 +3745,10 @@ export default function App() {
                       return (
                         <>
                           <div className="px-4 py-2.5 sm:px-5 sm:py-3 border-b border-black/[0.04] bg-[#fbfbfd] flex items-center justify-between shrink-0">
-                            <span className="text-[11px] font-semibold text-apple-subtext uppercase tracking-wider">
+                            <span className="text-[11px] font-bold text-apple-subtext uppercase tracking-wider">
                               Daftar Pelanggan PPPoE:
                             </span>
-                            <span className="text-[11px] font-semibold text-apple-subtext uppercase tracking-wider">
+                            <span className="text-[11px] font-bold text-apple-subtext uppercase tracking-wider font-mono">
                               {filtered.length} Pelanggan
                             </span>
                           </div>
@@ -3869,12 +3869,12 @@ export default function App() {
                     });
 
                     return (
-                      <section className="bg-white rounded-2xl sm:rounded-3xl border border-black/[0.08] shadow-[0_2px_12px_rgba(0,0,0,0.03)] overflow-hidden flex flex-col">
+                      <section className="bg-white rounded-2xl sm:rounded-3xl border border-black/[0.08] shadow-apple overflow-hidden flex flex-col">
                         <div className="px-4 py-2.5 sm:px-5 sm:py-3 border-b border-black/[0.04] bg-[#fbfbfd] flex items-center justify-between shrink-0">
-                          <span className="text-[11px] font-semibold text-apple-subtext uppercase tracking-wider">
+                          <span className="text-[11px] font-bold text-apple-subtext uppercase tracking-wider">
                             Daftar Profil Bandwidth:
                           </span>
-                          <span className="text-[11px] font-semibold text-apple-subtext uppercase tracking-wider">
+                          <span className="text-[11px] font-bold text-apple-subtext uppercase tracking-wider font-mono">
                             {filtered.length} Profil
                           </span>
                         </div>
@@ -3971,13 +3971,13 @@ export default function App() {
                     });
 
                     return (
-                      <section className="bg-white rounded-2xl sm:rounded-3xl border border-black/[0.08] shadow-[0_2px_12px_rgba(0,0,0,0.03)] overflow-hidden flex flex-col">
+                      <section className="bg-white rounded-2xl sm:rounded-3xl border border-black/[0.08] shadow-apple overflow-hidden flex flex-col">
                         <div className="px-4 py-2.5 sm:px-5 sm:py-3 border-b border-black/[0.04] bg-[#fbfbfd] flex items-center justify-between shrink-0">
-                          <span className="text-[11px] font-semibold text-apple-subtext uppercase tracking-wider">
+                          <span className="text-[11px] font-bold text-apple-subtext uppercase tracking-wider">
                             Daftar Sesi Online Aktif:
                           </span>
                           <div className="flex items-center gap-2">
-                            <span className="text-[11px] font-semibold text-apple-subtext uppercase tracking-wider">
+                            <span className="text-[11px] font-bold text-apple-subtext uppercase tracking-wider font-mono">
                               {filtered.length} Sesi Terhubung
                             </span>
                             <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -4933,13 +4933,13 @@ export default function App() {
                           icon: Users,
                           count: hotspotUsers.filter((u) => !isHiddenDefaultUser(u.name)).length,
                         },
-                        { id: 'active' as const, label: 'Active', icon: Activity, count: hotspotActive.length },
                         {
                           id: 'profile' as const,
                           label: 'Profile',
                           icon: Zap,
                           count: hotspotProfiles.filter((p) => !isHiddenDefaultProfile(p.name)).length,
                         },
+                        { id: 'active' as const, label: 'Active', icon: Activity, count: hotspotActive.length },
                       ].map((tab, idx, arr) => {
                         const isSelected = hotspotSubTab === tab.id;
                         const prevSelected = idx > 0 && hotspotSubTab === arr[idx - 1].id;
@@ -5221,26 +5221,31 @@ export default function App() {
 
                   {/* SUB-TAB 1 CONTENT: DAFTAR USER / VOUCHER HOTSPOT */}
                   {hotspotSubTab === 'user' && (
-                    <section className="bg-apple-card rounded-2xl sm:rounded-3xl border border-black/[0.08] shadow-apple overflow-hidden flex flex-col">
-                      <div className="px-3.5 py-2.5 sm:px-4 sm:py-3 border-b border-black/[0.04] bg-[#fbfbfd] flex items-center justify-between shrink-0">
-                        <span className="text-xs font-semibold text-apple-subtext uppercase tracking-wider">
+                    <section className="bg-white rounded-2xl sm:rounded-3xl border border-black/[0.08] shadow-apple overflow-hidden flex flex-col">
+                      <div className="px-4 py-2.5 sm:px-5 sm:py-3 border-b border-black/[0.04] bg-[#fbfbfd] flex items-center justify-between shrink-0">
+                        <span className="text-[11px] font-bold text-apple-subtext uppercase tracking-wider">
                           Daftar User / Voucher Hotspot:
                         </span>
-                        <span className="text-xs font-semibold text-apple-subtext uppercase tracking-wider">
+                        <span className="text-[11px] font-bold text-apple-subtext uppercase tracking-wider font-mono">
                           {filteredUsers.length} User
                         </span>
                       </div>
 
                       {filteredUsers.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center gap-2 px-4 py-16 text-center">
-                          <div className="h-10 w-10 rounded-full bg-apple-bg flex items-center justify-center text-apple-subtext">
-                            <Ticket className="h-5 w-5" />
+                        <div className="flex flex-col items-center justify-center gap-3 px-4 py-16 text-center">
+                          <div className="h-12 w-12 rounded-full bg-apple-bg flex items-center justify-center text-apple-subtext">
+                            <Ticket className="h-6 w-6 stroke-[1.5]" />
                           </div>
-                          <p className="text-xs font-medium text-apple-subtext">
-                            {hotspotUserSearch || hotspotUserFilter !== 'all'
-                              ? 'Tidak ada user hotspot yang cocok dengan pencarian/filter.'
-                              : 'Belum ada user hotspot terdaftar di MikroTik.'}
-                          </p>
+                          <div>
+                            <p className="text-sm font-semibold text-apple-text">
+                              Tidak Ada User Hotspot
+                            </p>
+                            <p className="text-xs text-apple-subtext mt-0.5">
+                              {hotspotUserSearch || hotspotUserFilter !== 'all'
+                                ? 'Tidak ada user hotspot yang cocok dengan pencarian atau filter.'
+                                : 'Belum ada user hotspot terdaftar di MikroTik.'}
+                            </p>
+                          </div>
                         </div>
                       ) : (
                         <div className="divide-y divide-black/[0.04] overflow-y-auto max-h-[515px] sm:max-h-[600px] overscroll-contain pb-2">
@@ -5333,27 +5338,32 @@ export default function App() {
 
                   {/* SUB-TAB 2 CONTENT: DAFTAR ACTIVE HOTSPOT */}
                   {hotspotSubTab === 'active' && (
-                    <section className="bg-apple-card rounded-2xl sm:rounded-3xl border border-black/[0.08] shadow-apple overflow-hidden flex flex-col">
-                      <div className="px-3.5 py-2.5 sm:px-4 sm:py-3 border-b border-black/[0.04] bg-[#fbfbfd] flex items-center justify-between shrink-0">
-                        <span className="text-xs font-semibold text-apple-subtext uppercase tracking-wider flex items-center gap-1.5">
+                    <section className="bg-white rounded-2xl sm:rounded-3xl border border-black/[0.08] shadow-apple overflow-hidden flex flex-col">
+                      <div className="px-4 py-2.5 sm:px-5 sm:py-3 border-b border-black/[0.04] bg-[#fbfbfd] flex items-center justify-between shrink-0">
+                        <span className="text-[11px] font-bold text-apple-subtext uppercase tracking-wider flex items-center gap-1.5">
                           <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                           Sesi Hotspot Aktif:
                         </span>
-                        <span className="text-xs font-semibold text-apple-subtext uppercase tracking-wider">
+                        <span className="text-[11px] font-bold text-apple-subtext uppercase tracking-wider font-mono">
                           {filteredActive.length} Online
                         </span>
                       </div>
 
                       {filteredActive.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center gap-2 px-4 py-16 text-center">
-                          <div className="h-10 w-10 rounded-full bg-apple-bg flex items-center justify-center text-apple-subtext">
-                            <Activity className="h-5 w-5" />
+                        <div className="flex flex-col items-center justify-center gap-3 px-4 py-16 text-center">
+                          <div className="h-12 w-12 rounded-full bg-apple-bg flex items-center justify-center text-apple-subtext">
+                            <Activity className="h-6 w-6 stroke-[1.5]" />
                           </div>
-                          <p className="text-xs font-medium text-apple-subtext">
-                            {hotspotActiveSearch
-                              ? 'Tidak ada sesi aktif yang cocok dengan pencarian.'
-                              : 'Tidak ada user hotspot yang sedang login saat ini.'}
-                          </p>
+                          <div>
+                            <p className="text-sm font-semibold text-apple-text">
+                              Tidak Ada Sesi Aktif
+                            </p>
+                            <p className="text-xs text-apple-subtext mt-0.5">
+                              {hotspotActiveSearch
+                                ? 'Tidak ada sesi aktif yang cocok dengan pencarian.'
+                                : 'Tidak ada user hotspot yang sedang login saat ini.'}
+                            </p>
+                          </div>
                         </div>
                       ) : (
                         <div className="divide-y divide-black/[0.04] overflow-y-auto max-h-[515px] sm:max-h-[600px] overscroll-contain pb-2">
@@ -5463,26 +5473,31 @@ export default function App() {
 
                   {/* SUB-TAB 3 CONTENT: DAFTAR PROFIL HOTSPOT */}
                   {hotspotSubTab === 'profile' && (
-                    <section className="bg-apple-card rounded-2xl sm:rounded-3xl border border-black/[0.08] shadow-apple overflow-hidden flex flex-col">
-                      <div className="px-3.5 py-2.5 sm:px-4 sm:py-3 border-b border-black/[0.04] bg-[#fbfbfd] flex items-center justify-between shrink-0">
-                        <span className="text-xs font-semibold text-apple-subtext uppercase tracking-wider">
+                    <section className="bg-white rounded-2xl sm:rounded-3xl border border-black/[0.08] shadow-apple overflow-hidden flex flex-col">
+                      <div className="px-4 py-2.5 sm:px-5 sm:py-3 border-b border-black/[0.04] bg-[#fbfbfd] flex items-center justify-between shrink-0">
+                        <span className="text-[11px] font-bold text-apple-subtext uppercase tracking-wider">
                           Daftar Profil Hotspot:
                         </span>
-                        <span className="text-xs font-semibold text-apple-subtext uppercase tracking-wider">
+                        <span className="text-[11px] font-bold text-apple-subtext uppercase tracking-wider font-mono">
                           {filteredProfiles.length} Profil
                         </span>
                       </div>
 
                       {filteredProfiles.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center gap-2 px-4 py-16 text-center">
-                          <div className="h-10 w-10 rounded-full bg-apple-bg flex items-center justify-center text-apple-subtext">
-                            <Zap className="h-5 w-5" />
+                        <div className="flex flex-col items-center justify-center gap-3 px-4 py-16 text-center">
+                          <div className="h-12 w-12 rounded-full bg-apple-bg flex items-center justify-center text-apple-subtext">
+                            <Zap className="h-6 w-6 stroke-[1.5]" />
                           </div>
-                          <p className="text-xs font-medium text-apple-subtext">
-                            {hotspotProfileSearch
-                              ? 'Tidak ada profil hotspot yang cocok dengan pencarian.'
-                              : 'Belum ada profil user hotspot terdaftar di MikroTik.'}
-                          </p>
+                          <div>
+                            <p className="text-sm font-semibold text-apple-text">
+                              Tidak Ada Profil
+                            </p>
+                            <p className="text-xs text-apple-subtext mt-0.5">
+                              {hotspotProfileSearch
+                                ? 'Tidak ada profil hotspot yang cocok dengan pencarian.'
+                                : 'Belum ada profil user hotspot terdaftar di MikroTik.'}
+                            </p>
+                          </div>
                         </div>
                       ) : (
                         <div className="divide-y divide-black/[0.04] overflow-y-auto max-h-[515px] sm:max-h-[600px] overscroll-contain pb-2">
@@ -6064,9 +6079,14 @@ export default function App() {
 
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div>
-                                  <label className="block text-xs font-bold text-apple-subtext mb-1.5 uppercase tracking-wider">
-                                    Rate Limit (Rx/Tx)
-                                  </label>
+                                  <div className="flex items-center justify-between mb-1.5">
+                                    <label className="block text-xs font-bold text-apple-subtext uppercase tracking-wider">
+                                      Rate Limit (Rx/Tx)
+                                    </label>
+                                    <span className="text-[10px] text-apple-subtext font-medium">
+                                      Upload / Download
+                                    </span>
+                                  </div>
                                   <input
                                     type="text"
                                     value={hotspotProfileFormRateLimit}
@@ -6074,6 +6094,24 @@ export default function App() {
                                     placeholder="misal: 3M/3M atau 512k/2M"
                                     className="w-full min-h-[48px] rounded-2xl bg-apple-bg border-0 ring-1 ring-inset ring-black/[0.06] px-4 py-2.5 text-sm font-mono text-apple-text placeholder:text-apple-subtext/60 focus:outline-none focus:ring-2 focus:ring-apple-blue focus:bg-white transition-all shadow-sm"
                                   />
+                                  {/* Quick preset chips */}
+                                  <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                                    <span className="text-[10px] text-apple-subtext font-medium mr-1">Preset:</span>
+                                    {['512k/1M', '1M/2M', '2M/3M', '3M/5M', '5M/10M', '10M/10M'].map((preset) => (
+                                      <button
+                                        key={preset}
+                                        type="button"
+                                        onClick={() => setHotspotProfileFormRateLimit(preset)}
+                                        className={`text-[10px] font-mono px-2 py-0.5 rounded-md border transition-all ${
+                                          hotspotProfileFormRateLimit === preset
+                                            ? 'bg-apple-blue text-white border-apple-blue font-bold shadow-xs'
+                                            : 'bg-black/[0.04] text-apple-subtext border-black/[0.04] hover:bg-black/[0.08] hover:text-apple-text'
+                                        }`}
+                                      >
+                                        {preset}
+                                      </button>
+                                    ))}
+                                  </div>
                                 </div>
 
                                 <div>
@@ -6487,12 +6525,12 @@ export default function App() {
                   .sort((a, b) => compareIp(a.address, b.address));
 
                 return (
-                  <section className="bg-white rounded-2xl sm:rounded-3xl border border-black/[0.08] shadow-[0_2px_12px_rgba(0,0,0,0.03)] overflow-hidden flex flex-col">
+                  <section className="bg-white rounded-2xl sm:rounded-3xl border border-black/[0.08] shadow-apple overflow-hidden flex flex-col">
                     <div className="px-4 py-2.5 sm:px-5 sm:py-3 border-b border-black/[0.04] bg-[#fbfbfd] flex items-center justify-between shrink-0">
-                      <span className="text-[11px] font-semibold text-apple-subtext uppercase tracking-wider">
+                      <span className="text-[11px] font-bold text-apple-subtext uppercase tracking-wider">
                         Daftar DHCP Leases:
                       </span>
-                      <span className="text-[11px] font-semibold text-apple-subtext uppercase tracking-wider">
+                      <span className="text-[11px] font-bold text-apple-subtext uppercase tracking-wider font-mono">
                         {filtered.length} Perangkat
                       </span>
                     </div>
@@ -6652,11 +6690,11 @@ export default function App() {
                           <button
                             type="button"
                             onClick={() => setSelectedLease(null)}
-                            className="h-9 w-9 rounded-full bg-black/[0.05] hover:bg-black/[0.10] text-apple-subtext hover:text-apple-text flex items-center justify-center transition-all"
-                            title="Tutup"
+                            className="text-apple-subtext hover:text-apple-text rounded-full p-2 bg-black/[0.04] hover:bg-black/[0.08] transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
+                            title="Tutup modal"
                             aria-label="Tutup modal"
                           >
-                            <X className="h-4 w-4 stroke-[2.5]" />
+                            <X className="h-4 w-4 stroke-[2.2]" />
                           </button>
                         </div>
 
