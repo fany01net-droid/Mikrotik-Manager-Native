@@ -2933,31 +2933,20 @@ export default function App() {
                 const isRefreshing = isDashboardRefreshing || isPppRefreshing || isHotspotRefreshing || isDhcpRefreshing;
                 return (
                   <div className="flex items-center gap-1.5">
-                    {/* Badge Latensi Terakhir (ms) */}
+                    {/* Angka Latensi Terakhir (ms) - Angka saja tanpa badge/pill */}
                     {lastLatency !== null && (
                       <span
-                        className={`font-mono text-[10px] sm:text-[11px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-1 border transition-all select-none ${
+                        className={`font-mono text-[11px] sm:text-xs font-semibold select-none transition-colors px-0.5 ${
                           isRefreshing
-                            ? 'text-apple-subtext bg-black/[0.03] border-black/[0.06] opacity-60 animate-pulse'
+                            ? 'text-apple-subtext/40 animate-pulse'
                             : lastLatency < 150
-                            ? 'text-emerald-600 bg-emerald-500/10 border-emerald-500/20'
+                            ? 'text-emerald-600'
                             : lastLatency < 400
-                            ? 'text-amber-600 bg-amber-500/10 border-amber-500/20'
-                            : 'text-rose-600 bg-rose-500/10 border-rose-500/20'
+                            ? 'text-amber-600'
+                            : 'text-rose-600'
                         }`}
                         title={`Latensi respon API terakhir: ${lastLatency} ms`}
                       >
-                        <span
-                          className={`h-1.5 w-1.5 rounded-full ${
-                            isRefreshing
-                              ? 'bg-apple-blue animate-ping'
-                              : lastLatency < 150
-                              ? 'bg-emerald-500'
-                              : lastLatency < 400
-                              ? 'bg-amber-500'
-                              : 'bg-rose-500'
-                          }`}
-                        />
                         {lastLatency}ms
                       </span>
                     )}
@@ -7045,35 +7034,24 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Respon API / Latency Indicator */}
-                <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                  <span className="text-[11px] font-medium text-apple-subtext hidden xs:inline">
+                {/* Respon API / Latency Indicator - Angka saja tanpa badge/pill */}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="text-xs font-medium text-apple-subtext">
                     Respon API:
                   </span>
-                  <div
-                    className={`font-mono text-xs sm:text-sm font-bold px-2 py-0.5 rounded-lg border flex items-center gap-1.5 transition-all ${
+                  <span
+                    className={`font-mono text-xs sm:text-sm font-bold ${
                       lastLatency === null
-                        ? 'text-apple-subtext bg-black/[0.04] border-transparent'
+                        ? 'text-apple-subtext'
                         : lastLatency < 150
-                        ? 'text-emerald-600 bg-emerald-500/10 border-emerald-500/20'
+                        ? 'text-emerald-600'
                         : lastLatency < 400
-                        ? 'text-amber-600 bg-amber-500/10 border-amber-500/20'
-                        : 'text-rose-600 bg-rose-500/10 border-rose-500/20'
+                        ? 'text-amber-600'
+                        : 'text-rose-600'
                     }`}
                   >
-                    <span
-                      className={`h-1.5 w-1.5 rounded-full ${
-                        lastLatency === null
-                          ? 'bg-slate-400'
-                          : lastLatency < 150
-                          ? 'bg-emerald-500'
-                          : lastLatency < 400
-                          ? 'bg-amber-500'
-                          : 'bg-rose-500'
-                      }`}
-                    />
                     {lastLatency !== null ? `${lastLatency} ms` : '-'}
-                  </div>
+                  </span>
                 </div>
               </div>
 
