@@ -2625,48 +2625,64 @@ export default function App() {
     showToast('Anda telah keluar dari akun.', 'info');
   };
 
-  /* Apple Dynamic Pill Toast Component (Authentic iOS / macOS Dynamic Island Style) */
+  /* Authentic iOS Notification Banner Component */
   const renderToast = () => {
     if (!toast) return null;
     return (
       <aside
         aria-live="polite"
-        className="fixed top-3 left-1/2 -translate-x-1/2 z-[100] max-w-[90vw] pointer-events-auto transition-all duration-200 animate-in fade-in slide-in-from-top-2"
+        className="fixed left-1/2 -translate-x-1/2 z-[100] w-[calc(100vw-28px)] max-w-sm sm:max-w-md pointer-events-auto transition-all duration-300 animate-in fade-in slide-in-from-top-6"
+        style={{
+          top: 'max(2.5rem, calc(env(safe-area-inset-top, 0px) + 0.85rem))',
+        }}
       >
         <div
           onClick={() => setToast(null)}
-          className="cursor-pointer flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/85 text-white shadow-[0_8px_24px_rgba(0,0,0,0.35)] border border-white/15 backdrop-blur-xl active:scale-95 transition-transform"
+          className="cursor-pointer select-none rounded-[22px] bg-[#1c1c1e]/92 text-white p-3 sm:p-3.5 shadow-[0_16px_40px_rgba(0,0,0,0.4),0_2px_8px_rgba(0,0,0,0.25)] border border-white/15 backdrop-blur-2xl active:scale-[0.98] transition-transform flex items-start gap-3"
         >
-          {toast.type === 'success' && (
-            <div className="h-4 w-4 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
-              <CheckCircle2 className="h-3 w-3 stroke-[2.5]" />
-            </div>
-          )}
-          {toast.type === 'error' && (
-            <div className="h-4 w-4 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center shrink-0">
-              <AlertCircle className="h-3 w-3 stroke-[2.5]" />
-            </div>
-          )}
-          {toast.type === 'info' && (
-            <div className="h-4 w-4 rounded-full bg-apple-blue/20 text-sky-400 flex items-center justify-center shrink-0">
-              <Zap className="h-3 w-3 stroke-[2.5]" />
-            </div>
-          )}
+          {/* iOS App Icon / Type Badge */}
+          <div
+            className={`h-8 w-8 rounded-xl flex items-center justify-center shrink-0 shadow-sm mt-0.5 ${
+              toast.type === 'success'
+                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                : toast.type === 'error'
+                ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                : 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
+            }`}
+          >
+            {toast.type === 'success' && <CheckCircle2 className="h-4 w-4 stroke-[2.2]" />}
+            {toast.type === 'error' && <AlertCircle className="h-4 w-4 stroke-[2.2]" />}
+            {toast.type === 'info' && <Zap className="h-4 w-4 stroke-[2.2]" />}
+          </div>
 
-          <span className="text-xs font-medium tracking-tight truncate max-w-[240px] sm:max-w-md text-white/95 select-none">
-            {toast.message}
-          </span>
+          {/* iOS Notification Content */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-2 mb-0.5">
+              <span className="text-[11px] font-bold tracking-wider uppercase text-white/50">
+                {toast.type === 'success'
+                  ? 'FNet • Berhasil'
+                  : toast.type === 'error'
+                  ? 'FNet • Perhatian'
+                  : 'FNet • Sistem'}
+              </span>
+              <span className="text-[10px] text-white/40 font-mono">sekarang</span>
+            </div>
+            <p className="text-[13px] font-medium leading-snug text-white/95 break-words">
+              {toast.message}
+            </p>
+          </div>
 
+          {/* Dismiss button */}
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
               setToast(null);
             }}
-            className="text-white/40 hover:text-white p-0.5 rounded-full hover:bg-white/10 transition-colors ml-0.5"
+            className="text-white/40 hover:text-white p-1 rounded-full hover:bg-white/10 transition-colors shrink-0 -mr-1 -mt-0.5"
             aria-label="Tutup notifikasi"
           >
-            <X className="h-3 w-3" />
+            <X className="h-3.5 w-3.5" />
           </button>
         </div>
       </aside>
@@ -3057,8 +3073,8 @@ export default function App() {
 
                   {/* Modal Container */}
                   <div className="fixed inset-0 z-50 w-screen overflow-y-auto">
-                    <div className="flex min-h-full items-start justify-center p-4 pt-10 sm:items-center sm:p-0">
-                      <div className="relative transform overflow-hidden rounded-[28px] sm:rounded-3xl bg-apple-card text-left shadow-ios-modal transition-all sm:my-8 w-full max-w-lg border border-black/[0.08] animate-in fade-in zoom-in-95 duration-200">
+                    <div className="flex min-h-full items-center justify-center p-4 sm:p-6">
+                      <div className="relative transform overflow-hidden rounded-[26px] sm:rounded-3xl bg-apple-card text-left shadow-ios-modal transition-all my-auto w-full max-w-lg border border-black/[0.08] animate-in fade-in zoom-in-95 duration-200">
                         {/* Header Modal */}
                         <div className="px-6 pt-6 pb-4 border-b border-black/[0.06] flex items-center justify-between bg-[#fbfbfd]">
                           <div className="flex items-center gap-3">
@@ -4065,9 +4081,9 @@ export default function App() {
                       className="fixed inset-0 z-50 w-screen overflow-y-auto"
                       onClick={() => setSelectedSecretId(null)}
                     >
-                      <div className="flex min-h-full items-start justify-center p-4 pt-10 sm:items-center sm:p-0">
+                      <div className="flex min-h-full items-center justify-center p-4 sm:p-6">
                         <div
-                          className="relative transform overflow-hidden rounded-[28px] sm:rounded-3xl bg-apple-card text-left shadow-ios-modal transition-all sm:my-8 w-full max-w-lg border border-black/[0.08] animate-in fade-in zoom-in-95 duration-200"
+                          className="relative transform overflow-hidden rounded-[26px] sm:rounded-3xl bg-apple-card text-left shadow-ios-modal transition-all my-auto w-full max-w-lg border border-black/[0.08] animate-in fade-in zoom-in-95 duration-200"
                           onClick={(e) => e.stopPropagation()}
                         >
                           {/* Header Modal */}
@@ -4409,9 +4425,9 @@ export default function App() {
                     className="fixed inset-0 z-50 w-screen overflow-y-auto"
                     onClick={() => setIsAddUserModalOpen(false)}
                   >
-                    <div className="flex min-h-full items-start justify-center p-4 pt-10 sm:items-center sm:p-0">
+                    <div className="flex min-h-full items-center justify-center p-4 sm:p-6">
                       <div
-                        className="relative transform overflow-hidden rounded-[28px] sm:rounded-3xl bg-apple-card text-left shadow-ios-modal transition-all sm:my-8 w-full max-w-lg border border-black/[0.08] animate-in fade-in zoom-in-95 duration-200"
+                        className="relative transform overflow-hidden rounded-[26px] sm:rounded-3xl bg-apple-card text-left shadow-ios-modal transition-all my-auto w-full max-w-lg border border-black/[0.08] animate-in fade-in zoom-in-95 duration-200"
                         onClick={(e) => e.stopPropagation()}
                       >
                         {/* Header Modal */}
@@ -4563,9 +4579,9 @@ export default function App() {
                     className="fixed inset-0 z-50 w-screen overflow-y-auto"
                     onClick={() => setIsProfileModalOpen(false)}
                   >
-                    <div className="flex min-h-full items-start justify-center p-4 pt-10 sm:items-center sm:p-0">
+                    <div className="flex min-h-full items-center justify-center p-4 sm:p-6">
                       <div
-                        className="relative transform overflow-hidden rounded-[28px] sm:rounded-3xl bg-apple-card text-left shadow-ios-modal transition-all sm:my-8 w-full max-w-lg border border-black/[0.08] animate-in fade-in zoom-in-95 duration-200"
+                        className="relative transform overflow-hidden rounded-[26px] sm:rounded-3xl bg-apple-card text-left shadow-ios-modal transition-all my-auto w-full max-w-lg border border-black/[0.08] animate-in fade-in zoom-in-95 duration-200"
                         onClick={(e) => e.stopPropagation()}
                       >
                         {/* Header Modal */}
@@ -5569,9 +5585,9 @@ export default function App() {
                         className="fixed inset-0 z-50 w-screen overflow-y-auto"
                         onClick={() => setIsAddHotspotUserModalOpen(false)}
                       >
-                        <div className="flex min-h-full items-start justify-center p-4 pt-10 sm:items-center sm:p-0">
+                        <div className="flex min-h-full items-center justify-center p-4 sm:p-6">
                           <div
-                            className="relative transform overflow-hidden rounded-[28px] sm:rounded-3xl bg-apple-card text-left shadow-ios-modal transition-all sm:my-8 w-full max-w-lg border border-black/[0.08] animate-in fade-in zoom-in-95 duration-200"
+                            className="relative transform overflow-hidden rounded-[26px] sm:rounded-3xl bg-apple-card text-left shadow-ios-modal transition-all my-auto w-full max-w-lg border border-black/[0.08] animate-in fade-in zoom-in-95 duration-200"
                             onClick={(e) => e.stopPropagation()}
                           >
                             {/* Header Modal */}
@@ -5712,9 +5728,9 @@ export default function App() {
                         className="fixed inset-0 z-50 w-screen overflow-y-auto"
                         onClick={() => setSelectedHotspotUser(null)}
                       >
-                        <div className="flex min-h-full items-start justify-center p-4 pt-10 sm:items-center sm:p-0">
+                        <div className="flex min-h-full items-center justify-center p-4 sm:p-6">
                           <div
-                            className="relative transform overflow-hidden rounded-[28px] sm:rounded-3xl bg-apple-card text-left shadow-ios-modal transition-all sm:my-8 w-full max-w-lg border border-black/[0.08] animate-in fade-in zoom-in-95 duration-200"
+                            className="relative transform overflow-hidden rounded-[26px] sm:rounded-3xl bg-apple-card text-left shadow-ios-modal transition-all my-auto w-full max-w-lg border border-black/[0.08] animate-in fade-in zoom-in-95 duration-200"
                             onClick={(e) => e.stopPropagation()}
                           >
                             {/* Header Modal */}
@@ -5988,9 +6004,9 @@ export default function App() {
                         className="fixed inset-0 z-50 w-screen overflow-y-auto"
                         onClick={() => setIsHotspotProfileModalOpen(false)}
                       >
-                        <div className="flex min-h-full items-start justify-center p-4 pt-10 sm:items-center sm:p-0">
+                        <div className="flex min-h-full items-center justify-center p-4 sm:p-6">
                           <div
-                            className="relative transform overflow-hidden rounded-[28px] sm:rounded-3xl bg-apple-card text-left shadow-ios-modal transition-all sm:my-8 w-full max-w-lg border border-black/[0.08] animate-in fade-in zoom-in-95 duration-200"
+                            className="relative transform overflow-hidden rounded-[26px] sm:rounded-3xl bg-apple-card text-left shadow-ios-modal transition-all my-auto w-full max-w-lg border border-black/[0.08] animate-in fade-in zoom-in-95 duration-200"
                             onClick={(e) => e.stopPropagation()}
                           >
                             {/* Header Modal */}
@@ -6610,9 +6626,9 @@ export default function App() {
                     className="fixed inset-0 z-50 w-screen overflow-y-auto"
                     onClick={() => setSelectedLease(null)}
                   >
-                    <div className="flex min-h-full items-start justify-center p-4 pt-10 sm:items-center sm:p-0">
+                    <div className="flex min-h-full items-center justify-center p-4 sm:p-6">
                       <div
-                        className="relative transform overflow-hidden rounded-[28px] sm:rounded-3xl bg-apple-card text-left shadow-ios-modal transition-all sm:my-8 w-full max-w-lg border border-black/[0.08] animate-in fade-in zoom-in-95 duration-200"
+                        className="relative transform overflow-hidden rounded-[26px] sm:rounded-3xl bg-apple-card text-left shadow-ios-modal transition-all my-auto w-full max-w-lg border border-black/[0.08] animate-in fade-in zoom-in-95 duration-200"
                         onClick={(e) => e.stopPropagation()}
                       >
                         {/* Header Modal */}
