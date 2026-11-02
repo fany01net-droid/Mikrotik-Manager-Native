@@ -1406,6 +1406,8 @@ export default function App() {
   const [metrics, setMetrics] = useState(defaultDashboardMetrics);
   const [liveInterfaces, setLiveInterfaces] = useState<NetworkInterface[]>([]);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'connected' | 'error'>('idle');
+  const [lastLatency, setLastLatency] = useState<number | null>(null);
+  const [isDashboardRefreshing, setIsDashboardRefreshing] = useState(false);
 
   const isFetchingDashboardRef = useRef(false);
   const isFetchingPppoeRef = useRef(false);
@@ -1438,6 +1440,8 @@ export default function App() {
     setIsAddUserModalOpen(false);
     setIsAddHotspotUserModalOpen(false);
     setSyncStatus('syncing');
+    setLastLatency(null);
+    setIsDashboardRefreshing(false);
     isFetchingDashboardRef.current = false;
     isFetchingPppoeRef.current = false;
     isFetchingDhcpRef.current = false;
@@ -1470,6 +1474,7 @@ export default function App() {
     const currentProfileId = profile.id;
     isFetchingDashboardRef.current = true;
     setSyncStatus((prev) => (prev === 'connected' ? 'connected' : 'syncing'));
+    const startTime = performance.now();
 
     try {
       // STRICT GET ONLY - Read-only calls for Dashboard & Hardware Telemetry
@@ -1576,6 +1581,8 @@ export default function App() {
       }
 
       if (resResource.status === 'fulfilled') {
+        const duration = Math.round(performance.now() - startTime);
+        setLastLatency(duration);
         setSyncStatus('connected');
       } else {
         setSyncStatus('error');
@@ -1586,6 +1593,7 @@ export default function App() {
       }
     } finally {
       isFetchingDashboardRef.current = false;
+      setIsDashboardRefreshing(false);
     }
   }, [getSelectedProfile]);
 
@@ -1601,6 +1609,7 @@ export default function App() {
     const currentProfileId = profile.id;
     isFetchingPppoeRef.current = true;
     setIsPppRefreshing(true);
+    const startTime = performance.now();
 
     try {
       // STRICT GET ONLY - Read-only calls for PPPoE Secrets, Profiles, Active Sessions & IP Pools
@@ -1686,6 +1695,8 @@ export default function App() {
         resPppActive.status === 'fulfilled' ||
         resPppProfiles.status === 'fulfilled'
       ) {
+        const duration = Math.round(performance.now() - startTime);
+        setLastLatency(duration);
         setSyncStatus('connected');
       } else {
         setSyncStatus('error');
@@ -1709,10 +1720,13 @@ export default function App() {
     const currentProfileId = profile.id;
     isFetchingDhcpRef.current = true;
     setIsDhcpRefreshing(true);
+    const startTime = performance.now();
 
     try {
       const leases = await mikrotikApiService.getDhcpLeases(profile);
       if (selectedMikrotikIdRef.current !== currentProfileId) return;
+      const duration = Math.round(performance.now() - startTime);
+      setLastLatency(duration);
       if (Array.isArray(leases)) {
         setDhcpLeases(leases);
       }
@@ -1834,6 +1848,7 @@ export default function App() {
     const currentProfileId = profile.id;
     isFetchingHotspotRef.current = true;
     setIsHotspotRefreshing(true);
+    const startTime = performance.now();
 
     try {
       const [resUsers, resActive, resProfiles] = await Promise.allSettled([
@@ -1843,6 +1858,9 @@ export default function App() {
       ]);
 
       if (selectedMikrotikIdRef.current !== currentProfileId) return;
+
+      const duration = Math.round(performance.now() - startTime);
+      setLastLatency(duration);
 
       if (resUsers.status === 'fulfilled' && Array.isArray(resUsers.value)) {
         setHotspotUsers(resUsers.value.filter((u) => !isHiddenDefaultUser(u.name)));
@@ -2874,63 +2892,97 @@ export default function App() {
               </h1>
             </div>
 
-            {/* Right Action: Tombol Refresh (saat di PPPoE, Hotspot, atau DHCP) & Icon Logout */}
+            {/* Right Action: Tombol Refresh & Badge Latensi (ms) & Icon Logout */}
             <div className="flex items-center gap-1.5 sm:gap-2">
-              {(activeTab === 'pppoe' || activeTab === 'hotspot' || activeTab === 'dhcp') && (() => {
-                const isRefreshing = isPppRefreshing || isHotspotRefreshing || isDhcpRefreshing;
+              {(activeTab === 'beranda' || activeTab === 'pppoe' || activeTab === 'hotspot' || activeTab === 'dhcp') && (() => {
+                const isRefreshing = isDashboardRefreshing || isPppRefreshing || isHotspotRefreshing || isDhcpRefreshing;
                 return (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (activeTab === 'pppoe') fetchPppoeData();
-                      else if (activeTab === 'hotspot') fetchHotspotData();
-                      else if (activeTab === 'dhcp') fetchDhcpData();
-                    }}
-                    disabled={isRefreshing}
-                    className={`h-8 w-8 rounded-full flex items-center justify-center transition-all active:scale-90 shrink-0 ${
-                      isRefreshing
-                        ? 'bg-apple-blue/10 text-apple-blue cursor-wait'
-                        : 'text-apple-subtext hover:text-apple-blue bg-black/[0.04] hover:bg-black/[0.08]'
-                    }`}
-                    title={
-                      activeTab === 'pppoe'
-                        ? 'Segarkan data PPPoE'
-                        : activeTab === 'hotspot'
-                        ? 'Segarkan data Hotspot'
-                        : 'Segarkan data DHCP Leases'
-                    }
-                    aria-label={
-                      activeTab === 'pppoe'
-                        ? 'Segarkan data PPPoE'
-                        : activeTab === 'hotspot'
-                        ? 'Segarkan data Hotspot'
-                        : 'Segarkan data DHCP Leases'
-                    }
-                  >
-                    {isRefreshing ? (
-                      <svg
-                        className="h-3.5 w-3.5 animate-spin text-apple-blue"
-                        viewBox="0 0 24 24"
-                        fill="none"
+                  <div className="flex items-center gap-1.5">
+                    {/* Badge Latensi Terakhir (ms) */}
+                    {lastLatency !== null && (
+                      <span
+                        className={`font-mono text-[10px] sm:text-[11px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-1 border transition-all select-none ${
+                          isRefreshing
+                            ? 'text-apple-subtext bg-black/[0.03] border-black/[0.06] opacity-60 animate-pulse'
+                            : lastLatency < 150
+                            ? 'text-emerald-600 bg-emerald-500/10 border-emerald-500/20'
+                            : lastLatency < 400
+                            ? 'text-amber-600 bg-amber-500/10 border-amber-500/20'
+                            : 'text-rose-600 bg-rose-500/10 border-rose-500/20'
+                        }`}
+                        title={`Latensi respon API terakhir: ${lastLatency} ms`}
                       >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="3"
+                        <span
+                          className={`h-1.5 w-1.5 rounded-full ${
+                            isRefreshing
+                              ? 'bg-apple-blue animate-ping'
+                              : lastLatency < 150
+                              ? 'bg-emerald-500'
+                              : lastLatency < 400
+                              ? 'bg-amber-500'
+                              : 'bg-rose-500'
+                          }`}
                         />
-                        <path
-                          className="opacity-100"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        />
-                      </svg>
-                    ) : (
-                      <RefreshCw className="h-3.5 w-3.5 stroke-[2.2]" />
+                        {lastLatency}ms
+                      </span>
                     )}
-                  </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (activeTab === 'beranda') {
+                          setIsDashboardRefreshing(true);
+                          fetchDashboardData();
+                        } else if (activeTab === 'pppoe') {
+                          fetchPppoeData();
+                        } else if (activeTab === 'hotspot') {
+                          fetchHotspotData();
+                        } else if (activeTab === 'dhcp') {
+                          fetchDhcpData();
+                        }
+                      }}
+                      disabled={isRefreshing}
+                      className={`h-8 w-8 rounded-full flex items-center justify-center transition-all active:scale-90 shrink-0 ${
+                        isRefreshing
+                          ? 'bg-apple-blue/10 text-apple-blue cursor-wait'
+                          : 'text-apple-subtext hover:text-apple-blue bg-black/[0.04] hover:bg-black/[0.08]'
+                      }`}
+                      title={
+                        activeTab === 'beranda'
+                          ? 'Segarkan data Dashboard'
+                          : activeTab === 'pppoe'
+                          ? 'Segarkan data PPPoE'
+                          : activeTab === 'hotspot'
+                          ? 'Segarkan data Hotspot'
+                          : 'Segarkan data DHCP Leases'
+                      }
+                      aria-label="Segarkan data"
+                    >
+                      {isRefreshing ? (
+                        <svg
+                          className="h-3.5 w-3.5 animate-spin text-apple-blue"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="3"
+                          />
+                          <path
+                            className="opacity-100"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          />
+                        </svg>
+                      ) : (
+                        <RefreshCw className="h-3.5 w-3.5 stroke-[2.2]" />
+                      )}
+                    </button>
+                  </div>
                 );
               })()}
               <button
@@ -6927,7 +6979,64 @@ export default function App() {
             /* ============================================================= */
             /* HALAMAN DASHBOARD (SYSTEM INFO MIKROTIK - APPLE HIG STYLE)   */
             /* ============================================================= */
-            <div className="space-y-4 sm:space-y-6 w-full max-w-4xl mx-auto animate-in fade-in duration-300">
+            <div className="space-y-3 sm:space-y-4 w-full max-w-4xl mx-auto animate-in fade-in duration-300">
+              {/* Top Router Status & Latency Banner */}
+              <div className="bg-apple-card rounded-2xl border border-black/[0.06] p-3 sm:px-4 sm:py-3 shadow-apple flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="relative flex h-2.5 w-2.5 shrink-0">
+                    <span
+                      className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                        syncStatus === 'connected' ? 'bg-emerald-400' : syncStatus === 'syncing' ? 'bg-amber-400' : 'bg-rose-400'
+                      }`}
+                    />
+                    <span
+                      className={`relative inline-flex rounded-full h-2.5 w-2.5 ${
+                        syncStatus === 'connected' ? 'bg-emerald-500' : syncStatus === 'syncing' ? 'bg-amber-500' : 'bg-rose-500'
+                      }`}
+                    />
+                  </span>
+                  <div className="min-w-0 flex items-center gap-2">
+                    <span className="text-xs sm:text-sm font-bold text-apple-text truncate">
+                      {metrics.identity || 'MikroTik Router'}
+                    </span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-black/[0.04] text-apple-subtext font-medium hidden sm:inline-block truncate max-w-[150px]">
+                      {metrics.boardModel !== '-' ? metrics.boardModel : 'RouterOS'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Respon API / Latency Indicator */}
+                <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                  <span className="text-[11px] font-medium text-apple-subtext hidden xs:inline">
+                    Respon API:
+                  </span>
+                  <div
+                    className={`font-mono text-xs sm:text-sm font-bold px-2 py-0.5 rounded-lg border flex items-center gap-1.5 transition-all ${
+                      lastLatency === null
+                        ? 'text-apple-subtext bg-black/[0.04] border-transparent'
+                        : lastLatency < 150
+                        ? 'text-emerald-600 bg-emerald-500/10 border-emerald-500/20'
+                        : lastLatency < 400
+                        ? 'text-amber-600 bg-amber-500/10 border-amber-500/20'
+                        : 'text-rose-600 bg-rose-500/10 border-rose-500/20'
+                    }`}
+                  >
+                    <span
+                      className={`h-1.5 w-1.5 rounded-full ${
+                        lastLatency === null
+                          ? 'bg-slate-400'
+                          : lastLatency < 150
+                          ? 'bg-emerald-500'
+                          : lastLatency < 400
+                          ? 'bg-amber-500'
+                          : 'bg-rose-500'
+                      }`}
+                    />
+                    {lastLatency !== null ? `${lastLatency} ms` : '-'}
+                  </div>
+                </div>
+              </div>
+
               {/* Metric Gauges Grid (CPU, RAM, HDD) - Adaptif Hijau, Kuning, Merah */}
               <div className="grid grid-cols-3 gap-2 sm:gap-4">
                 {/* 1. CPU */}
@@ -7239,6 +7348,23 @@ export default function App() {
                     <span className="text-apple-subtext font-medium">Kondisi Bad Blocks</span>
                     <span className="font-mono font-semibold text-emerald-600 text-right truncate">
                       {metrics.badBlocks}
+                    </span>
+                  </div>
+
+                  <div className="p-4 sm:px-5 flex items-center justify-between gap-4">
+                    <span className="text-apple-subtext font-medium">Latensi Respon API</span>
+                    <span
+                      className={`font-mono font-semibold text-right truncate ${
+                        lastLatency === null
+                          ? 'text-apple-text'
+                          : lastLatency < 150
+                          ? 'text-emerald-600'
+                          : lastLatency < 400
+                          ? 'text-amber-600'
+                          : 'text-rose-600'
+                      }`}
+                    >
+                      {lastLatency !== null ? `${lastLatency} ms` : '-'}
                     </span>
                   </div>
                 </div>
