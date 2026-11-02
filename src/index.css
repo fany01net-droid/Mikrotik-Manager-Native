@@ -93,6 +93,30 @@ input, textarea {
   }
 }
 
+/* Figma Smooth Motion Design Tokens */
+:root {
+  --ease-figma-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-figma-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --spring-figma-gentle: cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.transition-figma {
+  transition: all 0.28s var(--ease-figma-out);
+}
+
+.transition-figma-transform {
+  transition: transform 0.24s var(--ease-figma-out), opacity 0.24s var(--ease-figma-out);
+}
+
+.tap-spring {
+  transition: transform 0.18s var(--ease-figma-out), opacity 0.18s var(--ease-figma-out);
+  will-change: transform;
+}
+
+.tap-spring:active {
+  transform: scale(0.965);
+}
+
 /* iOS & Mobile Chrome fixed viewport architecture */
 html, body, #root {
   height: 100%;

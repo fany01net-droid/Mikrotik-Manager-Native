@@ -1,4 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  figmaSpring,
+  pageVariants,
+  modalBackdropVariants,
+  modalSheetVariants,
+  toastBannerVariants,
+} from './lib/motion';
 import {
   Lock,
   User,
@@ -38,6 +46,8 @@ import {
   Copy,
   Ticket,
   Clock,
+  KeyRound,
+  Save,
 } from 'lucide-react';
 import { parseExpiryFromComment, extendExpiryDate, buildExpiryComment } from './lib/pppoeUtils';
 import { calculateHotspotUserExpiry } from './lib/hotspotUtils';
@@ -79,6 +89,34 @@ interface AuthSession {
   username: string;
   loggedInAt: string;
 }
+
+interface MasterAuth {
+  username: string;
+  password: string;
+}
+
+const DEFAULT_MASTER_AUTH: MasterAuth = {
+  username: 'ihwan',
+  password: '1',
+};
+
+const getStoredMasterAuth = (): MasterAuth => {
+  try {
+    const raw = localStorage.getItem('fnet_master_auth');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed.username === 'string' && typeof parsed.password === 'string') {
+        return {
+          username: parsed.username.trim() || 'ihwan',
+          password: parsed.password || '1',
+        };
+      }
+    }
+  } catch {
+    // fallback
+  }
+  return DEFAULT_MASTER_AUTH;
+};
 
 interface MikrotikDevice {
   id: string;
@@ -708,6 +746,9 @@ export default function App() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [session, setSession] = useState<AuthSession | null>(null);
+  const [masterUsername, setMasterUsername] = useState('ihwan');
+  const [masterPassword, setMasterPassword] = useState('1');
+  const [showMasterPassword, setShowMasterPassword] = useState(false);
   const [activeTab, setActiveTab] = useState<'beranda' | 'pppoe' | 'hotspot' | 'dhcp' | 'pengaturan'>('beranda');
 
   // Hotspot State [ User | Active | Profile ]
@@ -728,6 +769,7 @@ export default function App() {
   const [isAddHotspotUserModalOpen, setIsAddHotspotUserModalOpen] = useState(false);
   const [newHotspotUserName, setNewHotspotUserName] = useState('');
   const [newHotspotUserPass, setNewHotspotUserPass] = useState('');
+  const [showNewHotspotPass, setShowNewHotspotPass] = useState(false);
   const [newHotspotUserProfile, setNewHotspotUserProfile] = useState('Voucher-3M');
   const [newHotspotUserLimitUptime, setNewHotspotUserLimitUptime] = useState('');
   const [newHotspotUserComment, setNewHotspotUserComment] = useState('');
@@ -735,6 +777,7 @@ export default function App() {
   // Hotspot Detail / Edit User Modal
   const [selectedHotspotUser, setSelectedHotspotUser] = useState<HotspotUser | null>(null);
   const [editHotspotUserPass, setEditHotspotUserPass] = useState('');
+  const [showEditHotspotPass, setShowEditHotspotPass] = useState(false);
   const [editHotspotUserProfile, setEditHotspotUserProfile] = useState('Voucher-3M');
   const [editHotspotUserLimitUptime, setEditHotspotUserLimitUptime] = useState('');
   const [editHotspotUserComment, setEditHotspotUserComment] = useState('');
@@ -788,6 +831,7 @@ export default function App() {
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
   const [newUserName, setNewUserName] = useState('');
   const [newUserPass, setNewUserPass] = useState('');
+  const [showNewUserPass, setShowNewUserPass] = useState(false);
   const [newUserProfile, setNewUserProfile] = useState('');
   const [newUserComment, setNewUserComment] = useState('');
   const [newUserExpiry, setNewUserExpiry] = useState('');
@@ -822,11 +866,52 @@ export default function App() {
   const [mikrotikPort, setMikrotikPort] = useState('80');
   const [mikrotikUser, setMikrotikUser] = useState('');
   const [mikrotikPass, setMikrotikPass] = useState('');
+  const [showMikrotikPass, setShowMikrotikPass] = useState(false);
   const [mikrotikList, setMikrotikList] = useState<MikrotikDevice[]>([]);
+  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
+  const [deletingRouterTarget, setDeletingRouterTarget] = useState<MikrotikDevice | null>(null);
 
   const [demoSecrets, setDemoSecrets] = useState<DemoSecret[]>([]);
   const [demoProfiles, setDemoProfiles] = useState<DemoProfile[]>([]);
   const [demoActive, setDemoActive] = useState<DemoActive[]>([]);
+
+  // Progressive Lazy Loading visible limits
+  const [visiblePppSecrets, setVisiblePppSecrets] = useState(25);
+  const [visiblePppProfiles, setVisiblePppProfiles] = useState(25);
+  const [visiblePppActive, setVisiblePppActive] = useState(25);
+  const [visibleHotspotUsers, setVisibleHotspotUsers] = useState(25);
+  const [visibleHotspotActive, setVisibleHotspotActive] = useState(25);
+  const [visibleHotspotProfiles, setVisibleHotspotProfiles] = useState(25);
+  const [visibleDhcpLeases, setVisibleDhcpLeases] = useState(25);
+
+  // Reset lazy load visible limits when filters or search change
+  useEffect(() => {
+    setVisiblePppSecrets(25);
+  }, [pppSearch, pppFilter]);
+
+  useEffect(() => {
+    setVisiblePppProfiles(25);
+  }, [profileSearch, profileFilter]);
+
+  useEffect(() => {
+    setVisiblePppActive(25);
+  }, [activeSearch, activeFilter]);
+
+  useEffect(() => {
+    setVisibleHotspotUsers(25);
+  }, [hotspotUserSearch, hotspotUserFilter]);
+
+  useEffect(() => {
+    setVisibleHotspotActive(25);
+  }, [hotspotActiveSearch]);
+
+  useEffect(() => {
+    setVisibleHotspotProfiles(25);
+  }, [hotspotProfileSearch]);
+
+  useEffect(() => {
+    setVisibleDhcpLeases(25);
+  }, [dhcpSearch, dhcpFilter, dhcpServerFilter]);
 
   const poolOptions = useMemo(() => {
     const map = new Map<string, { name: string; ranges?: string }>();
@@ -2395,13 +2480,17 @@ export default function App() {
     }
   }, [selectedMikrotikId, activeTab, hotspotSubTab]);
 
-  // Restore saved login session and MikroTik list on mount
+  // Restore saved login session, master credentials, and MikroTik list on mount
   useEffect(() => {
     try {
+      const master = getStoredMasterAuth();
+      setMasterUsername(master.username);
+      setMasterPassword(master.password);
+
       const saved = localStorage.getItem('fnet_auth_user');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed?.username === 'ihwan') {
+        if (parsed?.username) {
           setSession(parsed);
         }
       }
@@ -2460,6 +2549,7 @@ export default function App() {
     setEditingId(null);
     setPingStatus('idle');
     setPingLatency(null);
+    setShowMikrotikPass(false);
   };
 
   const handleOpenAddModal = () => {
@@ -2468,6 +2558,7 @@ export default function App() {
     setMikrotikPort('80');
     setMikrotikUser('');
     setMikrotikPass('');
+    setShowMikrotikPass(false);
     setIsPinging(false);
     setPingStatus('idle');
     setPingLatency(null);
@@ -2480,6 +2571,7 @@ export default function App() {
     setMikrotikPort(device.port);
     setMikrotikUser(device.user);
     setMikrotikPass(device.pass);
+    setShowMikrotikPass(false);
     setIsPinging(false);
     setPingStatus('idle');
     setPingLatency(null);
@@ -2647,12 +2739,12 @@ export default function App() {
 
     setIsLoading(true);
 
-    // Hardcode check: ihwan / 1
     setTimeout(() => {
       setIsLoading(false);
-      if (trimmedUser === 'ihwan' && password === '1') {
+      const master = getStoredMasterAuth();
+      if (trimmedUser.toLowerCase() === master.username.toLowerCase() && password === master.password) {
         const authData: AuthSession = {
-          username: 'ihwan',
+          username: master.username,
           loggedInAt: new Date().toLocaleTimeString('id-ID', {
             hour: '2-digit',
             minute: '2-digit',
@@ -2670,6 +2762,38 @@ export default function App() {
     }, 400);
   };
 
+  const handleSaveMasterAuth = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = masterUsername.trim();
+    if (!trimmed) {
+      showToast('ID User Master tidak boleh kosong.', 'error');
+      return;
+    }
+    if (!masterPassword) {
+      showToast('Password Master tidak boleh kosong.', 'error');
+      return;
+    }
+
+    const newMaster: MasterAuth = {
+      username: trimmed,
+      password: masterPassword,
+    };
+    localStorage.setItem('fnet_master_auth', JSON.stringify(newMaster));
+    setMasterUsername(trimmed);
+
+    // Update current session username if logged in so UI updates immediately
+    if (session) {
+      const updatedSession: AuthSession = {
+        ...session,
+        username: trimmed,
+      };
+      setSession(updatedSession);
+      localStorage.setItem('fnet_auth_user', JSON.stringify(updatedSession));
+    }
+
+    showToast('Kredensial master login berhasil disimpan! Gunakan akun ini saat login.', 'success');
+  };
+
   const handleLogout = () => {
     localStorage.removeItem('fnet_auth_user');
     setSession(null);
@@ -2680,65 +2804,73 @@ export default function App() {
 
   /* Authentic iOS Notification Banner Component */
   const renderToast = () => {
-    if (!toast) return null;
     return (
-      <aside
-        aria-live="polite"
-        className="fixed left-1/2 -translate-x-1/2 z-[100] w-[calc(100vw-28px)] max-w-sm sm:max-w-md pointer-events-auto transition-all duration-300 animate-in fade-in slide-in-from-top-6"
-        style={{
-          top: 'max(2.5rem, calc(env(safe-area-inset-top, 0px) + 0.85rem))',
-        }}
-      >
-        <div
-          onClick={() => setToast(null)}
-          className="cursor-pointer select-none rounded-[22px] bg-[#1c1c1e]/92 text-white p-3 sm:p-3.5 shadow-[0_16px_40px_rgba(0,0,0,0.4),0_2px_8px_rgba(0,0,0,0.25)] border border-white/15 backdrop-blur-2xl active:scale-[0.98] transition-transform flex items-start gap-3"
-        >
-          {/* iOS App Icon / Type Badge */}
-          <div
-            className={`h-8 w-8 rounded-xl flex items-center justify-center shrink-0 shadow-sm mt-0.5 ${
-              toast.type === 'success'
-                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                : toast.type === 'error'
-                ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-                : 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
-            }`}
-          >
-            {toast.type === 'success' && <CheckCircle2 className="h-4 w-4 stroke-[2.2]" />}
-            {toast.type === 'error' && <AlertCircle className="h-4 w-4 stroke-[2.2]" />}
-            {toast.type === 'info' && <Zap className="h-4 w-4 stroke-[2.2]" />}
-          </div>
-
-          {/* iOS Notification Content */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between gap-2 mb-0.5">
-              <span className="text-[11px] font-bold tracking-wider uppercase text-white/50">
-                {toast.type === 'success'
-                  ? 'FNet • Berhasil'
-                  : toast.type === 'error'
-                  ? 'FNet • Perhatian'
-                  : 'FNet • Sistem'}
-              </span>
-              <span className="text-[10px] text-white/40 font-mono">sekarang</span>
-            </div>
-            <p className="text-[13px] font-medium leading-snug text-white/95 break-words">
-              {toast.message}
-            </p>
-          </div>
-
-          {/* Dismiss button */}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setToast(null);
+      <AnimatePresence>
+        {toast && (
+          <motion.aside
+            key="fnet-toast-banner"
+            variants={toastBannerVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            aria-live="polite"
+            className="fixed left-1/2 -translate-x-1/2 z-[100] w-[calc(100vw-28px)] max-w-sm sm:max-w-md pointer-events-auto"
+            style={{
+              top: 'max(2.5rem, calc(env(safe-area-inset-top, 0px) + 0.85rem))',
             }}
-            className="text-white/40 hover:text-white p-1 rounded-full hover:bg-white/10 transition-colors shrink-0 -mr-1 -mt-0.5"
-            aria-label="Tutup notifikasi"
           >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      </aside>
+            <div
+              onClick={() => setToast(null)}
+              className="cursor-pointer select-none rounded-[22px] bg-[#1c1c1e]/92 text-white p-3 sm:p-3.5 shadow-[0_16px_40px_rgba(0,0,0,0.4),0_2px_8px_rgba(0,0,0,0.25)] border border-white/15 backdrop-blur-2xl active:scale-[0.98] transition-transform flex items-start gap-3 tap-spring"
+            >
+              {/* iOS App Icon / Type Badge */}
+              <div
+                className={`h-8 w-8 rounded-xl flex items-center justify-center shrink-0 shadow-sm mt-0.5 ${
+                  toast.type === 'success'
+                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                    : toast.type === 'error'
+                    ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                    : 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
+                }`}
+              >
+                {toast.type === 'success' && <CheckCircle2 className="h-4 w-4 stroke-[2.2]" />}
+                {toast.type === 'error' && <AlertCircle className="h-4 w-4 stroke-[2.2]" />}
+                {toast.type === 'info' && <Zap className="h-4 w-4 stroke-[2.2]" />}
+              </div>
+
+              {/* iOS Notification Content */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2 mb-0.5">
+                  <span className="text-[11px] font-bold tracking-wider uppercase text-white/50">
+                    {toast.type === 'success'
+                      ? 'FNet • Berhasil'
+                      : toast.type === 'error'
+                      ? 'FNet • Perhatian'
+                      : 'FNet • Sistem'}
+                  </span>
+                  <span className="text-[10px] text-white/40 font-mono">sekarang</span>
+                </div>
+                <p className="text-[13px] font-medium leading-snug text-white/95 break-words">
+                  {toast.message}
+                </p>
+              </div>
+
+              {/* Dismiss button */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setToast(null);
+                }}
+                className="text-white/40 hover:text-white p-1 rounded-full hover:bg-white/10 transition-colors shrink-0 -mr-1 -mt-0.5"
+                aria-label="Tutup notifikasi"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </motion.aside>
+        )}
+      </AnimatePresence>
     );
   };
 
@@ -2826,14 +2958,14 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-1 top-1/2 -translate-y-1/2 text-apple-subtext hover:text-apple-text p-2 rounded-xl transition-colors min-h-[48px] min-w-[48px] flex items-center justify-center"
-                  title={showPassword ? 'Sembunyikan' : 'Tampilkan'}
-                  aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
+                  className="absolute right-1 top-1/2 -translate-y-1/2 text-apple-subtext hover:text-apple-blue p-2 rounded-xl transition-all min-h-[48px] min-w-[48px] flex items-center justify-center active:scale-90"
+                  title={showPassword ? 'Sembunyikan password' : 'Lihat password'}
+                  aria-label={showPassword ? 'Sembunyikan password' : 'Lihat password'}
                 >
                   {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
+                    <EyeOff className="h-4 w-4 stroke-[2.2]" />
                   ) : (
-                    <Eye className="h-4 w-4" />
+                    <Eye className="h-4 w-4 stroke-[2.2]" />
                   )}
                 </button>
               </div>
@@ -2996,7 +3128,7 @@ export default function App() {
               })()}
               <button
                 type="button"
-                onClick={handleLogout}
+                onClick={() => setIsLogoutConfirmOpen(true)}
                 className="h-8 w-8 rounded-full flex items-center justify-center text-rose-600 bg-rose-500/10 hover:bg-rose-500/20 active:scale-90 transition-all shrink-0"
                 title="Keluar dari akun"
                 aria-label="Keluar dari akun"
@@ -3011,11 +3143,19 @@ export default function App() {
       {/* Main Content Area: Smooth internal scroll without window bounce */}
       <main className="flex-1 w-full overflow-y-auto overscroll-contain">
         <div className="max-w-[1400px] mx-auto px-3.5 sm:px-6 lg:px-10 pt-2 sm:pt-2.5 pb-36 sm:pb-40 space-y-2.5 sm:space-y-3 flex flex-col">
-          {activeTab === 'pengaturan' ? (
-            /* ============================================================= */
-            /* HALAMAN PENGATURAN: LANGSUNG DAFTAR PERANGKAT                 */
-            /* ============================================================= */
-            <div className="space-y-2.5 sm:space-y-3.5 w-full max-w-2xl mx-auto animate-in fade-in duration-300">
+          <AnimatePresence mode="wait">
+            {activeTab === 'pengaturan' ? (
+              /* ============================================================= */
+              /* HALAMAN PENGATURAN: LANGSUNG DAFTAR PERANGKAT                 */
+              /* ============================================================= */
+              <motion.div
+                key="tab-pengaturan"
+                variants={pageVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                className="space-y-2.5 sm:space-y-3.5 w-full max-w-2xl mx-auto"
+              >
               {/* Langsung List MikroTik */}
               <section className="bg-white rounded-2xl sm:rounded-3xl border border-black/[0.08] shadow-apple overflow-hidden flex flex-col">
                 <div className="px-4 py-2.5 sm:px-5 sm:py-3 border-b border-black/[0.04] bg-[#fbfbfd] flex items-center justify-between shrink-0">
@@ -3109,7 +3249,7 @@ export default function App() {
                             <button
                               type="button"
                               onClick={() => handleOpenEditModal(item)}
-                              className="min-h-[38px] min-w-[38px] flex items-center justify-center text-apple-subtext hover:text-apple-blue rounded-lg hover:bg-black/[0.04] active:scale-95 transition-all"
+                              className="min-h-[44px] min-w-[44px] flex items-center justify-center text-apple-subtext hover:text-apple-blue rounded-xl hover:bg-black/[0.04] active:scale-95 transition-all"
                               title="Edit perangkat"
                               aria-label={`Edit perangkat ${item.ip}`}
                             >
@@ -3117,8 +3257,8 @@ export default function App() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => handleDeleteMikrotik(item.id)}
-                              className="min-h-[38px] min-w-[38px] flex items-center justify-center text-apple-subtext hover:text-rose-600 rounded-lg hover:bg-rose-500/10 active:scale-95 transition-colors"
+                              onClick={() => setDeletingRouterTarget(item)}
+                              className="min-h-[44px] min-w-[44px] flex items-center justify-center text-apple-subtext hover:text-rose-600 rounded-xl hover:bg-rose-500/10 active:scale-95 transition-colors"
                               title="Hapus dari list"
                               aria-label={`Hapus perangkat ${item.ip}`}
                             >
@@ -3130,6 +3270,120 @@ export default function App() {
                     })}
                   </div>
                 )}
+              </section>
+
+              {/* Kredensial Master Akun Login */}
+              <section className="bg-white rounded-2xl sm:rounded-3xl border border-black/[0.08] p-4 sm:p-5 shadow-apple">
+                <div className="flex items-center gap-2.5 mb-3.5 pb-3 border-b border-black/[0.04]">
+                  <div className="h-9 w-9 rounded-xl bg-apple-blue/10 text-apple-blue flex items-center justify-center shrink-0">
+                    <KeyRound className="h-4 w-4 stroke-[2.2]" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm sm:text-base font-bold text-apple-text tracking-tight">
+                      Kredensial Master Login
+                    </h3>
+                    <p className="text-xs text-apple-subtext mt-0.5">
+                      ID User & Password master untuk masuk ke aplikasi setelah logout
+                    </p>
+                  </div>
+                </div>
+
+                <form onSubmit={handleSaveMasterAuth} className="space-y-3.5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Input ID User Master */}
+                    <div>
+                      <label
+                        htmlFor="master-username-input"
+                        className="block text-[11px] font-bold text-apple-subtext mb-1 uppercase tracking-wider"
+                      >
+                        ID User Master <span className="text-rose-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          id="master-username-input"
+                          value={masterUsername}
+                          onChange={(e) => setMasterUsername(e.target.value)}
+                          required
+                          placeholder="misal: ihwan"
+                          className="w-full min-h-[48px] rounded-2xl bg-apple-bg border-0 ring-1 ring-inset ring-black/[0.06] pl-4 pr-10 py-2.5 text-sm font-semibold font-mono text-apple-text placeholder:text-apple-subtext/60 focus:outline-none focus:ring-2 focus:ring-apple-blue focus:bg-white transition-all shadow-sm"
+                        />
+                        <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-apple-subtext pointer-events-none">
+                          <User className="h-4 w-4" />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Input Password Master */}
+                    <div>
+                      <label
+                        htmlFor="master-password-input"
+                        className="block text-[11px] font-bold text-apple-subtext mb-1 uppercase tracking-wider"
+                      >
+                        Password Master <span className="text-rose-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showMasterPassword ? 'text' : 'password'}
+                          id="master-password-input"
+                          value={masterPassword}
+                          onChange={(e) => setMasterPassword(e.target.value)}
+                          required
+                          placeholder="Password Master"
+                          className="w-full min-h-[48px] rounded-2xl bg-apple-bg border-0 ring-1 ring-inset ring-black/[0.06] pl-4 pr-12 py-2.5 text-sm font-semibold font-mono text-apple-text placeholder:text-apple-subtext/60 focus:outline-none focus:ring-2 focus:ring-apple-blue focus:bg-white transition-all shadow-sm"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowMasterPassword(!showMasterPassword)}
+                          className="absolute right-1 top-1/2 -translate-y-1/2 text-apple-subtext hover:text-apple-blue p-2 rounded-xl transition-all min-h-[44px] min-w-[44px] flex items-center justify-center active:scale-90"
+                          title={showMasterPassword ? 'Sembunyikan password' : 'Lihat password'}
+                          aria-label={showMasterPassword ? 'Sembunyikan password' : 'Lihat password'}
+                        >
+                          {showMasterPassword ? (
+                            <EyeOff className="h-4 w-4 stroke-[2.2]" />
+                          ) : (
+                            <Eye className="h-4 w-4 stroke-[2.2]" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-1">
+                    <span className="text-[11px] text-apple-subtext">
+                      Disimpan aman secara lokal di perangkat ini (tanpa server pihak ketiga)
+                    </span>
+                    <button
+                      type="submit"
+                      className="min-h-[48px] px-5 py-2.5 rounded-2xl bg-apple-blue hover:bg-apple-blueHover text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-sm active:scale-[0.98] transition-all cursor-pointer shrink-0"
+                    >
+                      <Save className="h-4 w-4 stroke-[2.2]" />
+                      <span>Simpan Kredensial</span>
+                    </button>
+                  </div>
+                </form>
+              </section>
+
+              {/* Sesi Pengguna & Tombol Logout di Pengaturan */}
+              <section className="bg-white rounded-2xl sm:rounded-3xl border border-black/[0.08] p-4 sm:p-5 shadow-apple">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <span className="text-[11px] font-bold text-apple-subtext uppercase tracking-wider">
+                      Sesi Pengguna
+                    </span>
+                    <p className="text-sm font-semibold text-apple-text mt-0.5">
+                      Masuk sebagai <strong className="font-mono text-apple-blue font-bold">{session?.username || 'ihwan'}</strong>
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsLogoutConfirmOpen(true)}
+                    className="min-h-[48px] px-4 py-2.5 rounded-2xl bg-rose-500/10 hover:bg-rose-500/15 text-rose-600 border border-rose-500/20 font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
+                  >
+                    <LogOut className="h-4 w-4 stroke-[2.2]" />
+                    <span>Keluar dari Akun FNet</span>
+                  </button>
+                </div>
               </section>
 
               {/* Floating Action Button (FAB) Mobile Style */}
@@ -3159,10 +3413,15 @@ export default function App() {
 
                   {/* Modal Container */}
                   <div className="fixed inset-0 z-50 w-screen overflow-y-auto">
-                    <div className="flex min-h-full items-center justify-center p-4 sm:p-6">
-                      <div className="relative transform overflow-hidden rounded-[26px] sm:rounded-3xl bg-apple-card text-left shadow-ios-modal transition-all my-auto w-full max-w-lg border border-black/[0.08] animate-in fade-in zoom-in-95 duration-200">
+                    <div className="flex min-h-full items-end sm:items-center justify-center p-0 sm:p-4">
+                      <div className="relative transform overflow-hidden rounded-t-[32px] sm:rounded-3xl bg-apple-card text-left shadow-[0_-10px_40px_rgba(0,0,0,0.14)] sm:shadow-ios-modal transition-all my-0 sm:my-auto w-full max-w-lg border-t sm:border border-black/[0.08] max-h-[92vh] sm:max-h-[85vh] flex flex-col animate-in slide-in-from-bottom duration-300 ease-out sm:zoom-in-95">
+                        {/* iOS Drawer Grabber Handle */}
+                        <div className="w-full pt-3 pb-1 flex justify-center sm:hidden bg-[#fbfbfd] shrink-0">
+                          <div className="w-10 h-1.5 rounded-full bg-black/20" />
+                        </div>
+
                         {/* Header Modal */}
-                        <div className="px-6 pt-6 pb-4 border-b border-black/[0.06] flex items-center justify-between bg-[#fbfbfd]">
+                        <div className="px-5 pt-2 pb-3.5 sm:px-6 sm:pt-5 sm:pb-4 border-b border-black/[0.06] flex items-center justify-between bg-[#fbfbfd] shrink-0">
                           <div className="flex items-center gap-3">
                             <div className="h-10 w-10 rounded-2xl bg-apple-blue/10 text-apple-blue flex items-center justify-center font-bold shrink-0">
                               {editingId ? (
@@ -3197,7 +3456,7 @@ export default function App() {
                         </div>
 
                         {/* Form Input Modal */}
-                        <form onSubmit={handleSaveMikrotik} className="p-6 space-y-4">
+                        <form onSubmit={handleSaveMikrotik} className="p-5 sm:p-6 space-y-4 overflow-y-auto overscroll-contain flex-1">
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             {/* IP */}
                             <div>
@@ -3305,19 +3564,34 @@ export default function App() {
                               >
                                 PASS
                               </label>
-                              <input
-                                type="password"
-                                id="modal-mikrotik-pass"
-                                value={mikrotikPass}
-                                onChange={(e) => setMikrotikPass(e.target.value)}
-                                placeholder="Password"
-                                className="w-full min-h-[48px] rounded-2xl bg-apple-bg border-0 ring-1 ring-inset ring-black/[0.06] px-4 py-3 sm:py-2.5 text-base sm:text-sm font-mono text-apple-text placeholder:text-apple-subtext/60 focus:outline-none focus:ring-2 focus:ring-apple-blue focus:bg-white transition-all shadow-sm"
-                              />
+                              <div className="relative">
+                                <input
+                                  type={showMikrotikPass ? 'text' : 'password'}
+                                  id="modal-mikrotik-pass"
+                                  value={mikrotikPass}
+                                  onChange={(e) => setMikrotikPass(e.target.value)}
+                                  placeholder="Password"
+                                  className="w-full min-h-[48px] rounded-2xl bg-apple-bg border-0 ring-1 ring-inset ring-black/[0.06] pl-4 pr-12 py-3 sm:py-2.5 text-base sm:text-sm font-mono text-apple-text placeholder:text-apple-subtext/60 focus:outline-none focus:ring-2 focus:ring-apple-blue focus:bg-white transition-all shadow-sm"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => setShowMikrotikPass(!showMikrotikPass)}
+                                  className="absolute right-1 top-1/2 -translate-y-1/2 text-apple-subtext hover:text-apple-blue p-2 rounded-xl transition-all min-h-[44px] min-w-[44px] flex items-center justify-center active:scale-90"
+                                  title={showMikrotikPass ? 'Sembunyikan password' : 'Lihat password'}
+                                  aria-label={showMikrotikPass ? 'Sembunyikan password' : 'Lihat password'}
+                                >
+                                  {showMikrotikPass ? (
+                                    <EyeOff className="h-4 w-4 stroke-[2.2]" />
+                                  ) : (
+                                    <Eye className="h-4 w-4 stroke-[2.2]" />
+                                  )}
+                                </button>
+                              </div>
                             </div>
                           </div>
 
                           {/* Action Buttons */}
-                          <div className="mt-6 pt-4 border-t border-black/[0.06] flex flex-col sm:flex-row-reverse sm:items-center justify-start gap-2.5">
+                          <div className="mt-6 pt-4 border-t border-black/[0.06] flex flex-col sm:flex-row-reverse sm:items-center justify-start gap-2.5 pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] sm:pb-0">
                             <button
                               type="submit"
                               className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-2xl bg-apple-blue px-6 py-3.5 sm:py-2.5 text-base sm:text-sm font-semibold text-white shadow-sm hover:bg-apple-blueHover active:scale-[0.98] transition-all"
@@ -3348,12 +3622,19 @@ export default function App() {
                   </div>
                 </div>
               )}
-            </div>
+            </motion.div>
           ) : activeTab === 'pppoe' ? (
             /* ============================================================= */
             /* HALAMAN PPPOE: APPLE SEGMENTED CONTROL [ USER | PROFILE | ACTIVE ] */
             /* ============================================================= */
-            <div className="space-y-2.5 sm:space-y-3.5 w-full max-w-2xl mx-auto animate-in fade-in duration-300">
+            <motion.div
+              key="tab-pppoe"
+              variants={pageVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              className="space-y-2.5 sm:space-y-3.5 w-full max-w-2xl mx-auto"
+            >
               {/* STICKY TOP CONTROLS: Segmented Control + Search & Filter Bar */}
               <div className="sticky top-0 z-20 bg-apple-bg pt-0.5 pb-1 space-y-1.5">
                 {/* Apple Segmented Control Bar (Authentic iOS HIG Style) */}
@@ -3387,18 +3668,25 @@ export default function App() {
                           }}
                           className={`relative flex-1 py-1.5 px-1.5 text-xs font-semibold rounded-[10px] sm:rounded-[11px] active:scale-[0.98] transition-transform flex items-center justify-center gap-1.5 min-h-[40px] select-none ${
                             isSelected
-                              ? 'bg-white text-apple-text shadow-[0_1px_3px_rgba(0,0,0,0.10),0_1px_2px_rgba(0,0,0,0.06)]'
+                              ? 'text-apple-text'
                               : 'text-apple-subtext hover:text-apple-text hover:bg-black/[0.02]'
                           }`}
                         >
+                          {isSelected && (
+                            <motion.div
+                              layoutId="pppSubTabActivePill"
+                              className="absolute inset-0 bg-white rounded-[10px] sm:rounded-[11px] shadow-[0_1px_3px_rgba(0,0,0,0.10),0_1px_2px_rgba(0,0,0,0.06)] z-0"
+                              transition={figmaSpring.quick}
+                            />
+                          )}
                           <IconComponent
-                            className={`h-3.5 w-3.5 stroke-[2.2] ${
+                            className={`h-3.5 w-3.5 stroke-[2.2] relative z-10 ${
                               isSelected ? 'text-apple-blue' : 'text-apple-subtext'
                             }`}
                           />
-                          <span className="tracking-tight">{tab.label}</span>
+                          <span className="tracking-tight relative z-10">{tab.label}</span>
                           <span
-                            className={`text-[10px] px-1.5 py-0.5 rounded-md font-mono ${
+                            className={`text-[10px] px-1.5 py-0.5 rounded-md font-mono relative z-10 ${
                               isSelected
                                 ? 'bg-apple-blue/10 text-apple-blue font-bold'
                                 : 'bg-black/[0.05] text-apple-subtext font-medium'
@@ -3407,7 +3695,7 @@ export default function App() {
                             {tab.count}
                           </span>
                           {tab.id === 'active' && isSelected && (
-                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse -ml-0.5" />
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse -ml-0.5 relative z-10" />
                           )}
                         </button>
                       </React.Fragment>
@@ -3854,8 +4142,18 @@ export default function App() {
                               </div>
                             </div>
                           ) : (
-                            <div className="divide-y divide-black/[0.04] overflow-y-auto max-h-[515px] sm:max-h-[600px] overscroll-contain pb-2">
-                              {filtered.map((secret) => {
+                            <div
+                              onScroll={(e) => {
+                                const el = e.currentTarget;
+                                if (el.scrollTop + el.clientHeight >= el.scrollHeight - 80) {
+                                  if (visiblePppSecrets < filtered.length) {
+                                    setVisiblePppSecrets((prev) => Math.min(prev + 25, filtered.length));
+                                  }
+                                }
+                              }}
+                              className="divide-y divide-black/[0.04] overflow-y-auto max-h-[515px] sm:max-h-[600px] overscroll-contain pb-2"
+                            >
+                              {filtered.slice(0, visiblePppSecrets).map((secret) => {
                                 const parsed = parseExpiryFromComment(secret.comment);
                                 const activeSession = activeMap.get(secret.name.toLowerCase());
                                 const userIp = activeSession?.address || secret.remoteAddress || 'Dynamic IP';
@@ -3924,6 +4222,26 @@ export default function App() {
                                   </div>
                                 );
                               })}
+
+                              {filtered.length > visiblePppSecrets && (
+                                <div className="p-3 text-center border-t border-black/[0.04] bg-[#fbfbfd]">
+                                  <button
+                                    type="button"
+                                    onClick={() => setVisiblePppSecrets((prev) => Math.min(prev + 50, filtered.length))}
+                                    className="w-full py-2.5 px-4 text-xs font-semibold text-apple-blue bg-apple-blue/10 hover:bg-apple-blue/15 active:scale-[0.98] rounded-xl transition-all min-h-[44px] flex items-center justify-center gap-1.5"
+                                  >
+                                    <ChevronDown className="h-4 w-4 stroke-[2.2]" />
+                                    <span>Muat Lebih Banyak ({filtered.length - visiblePppSecrets} lagi)</span>
+                                    <span className="font-mono text-[11px] opacity-70">· Menampilkan {visiblePppSecrets} dari {filtered.length}</span>
+                                  </button>
+                                </div>
+                              )}
+
+                              {visiblePppSecrets >= filtered.length && filtered.length > 25 && (
+                                <div className="py-2.5 px-4 text-center border-t border-black/[0.04] bg-[#fbfbfd]/60 text-[11px] font-mono text-apple-subtext">
+                                  Semua {filtered.length} pelanggan telah dimuat
+                                </div>
+                              )}
                             </div>
                           )}
                         </>
@@ -3980,8 +4298,18 @@ export default function App() {
                             </div>
                           </div>
                         ) : (
-                          <div className="divide-y divide-black/[0.04] overflow-y-auto max-h-[515px] sm:max-h-[600px] overscroll-contain pb-2">
-                            {filtered.map((prof) => (
+                          <div
+                            onScroll={(e) => {
+                              const el = e.currentTarget;
+                              if (el.scrollTop + el.clientHeight >= el.scrollHeight - 80) {
+                                if (visiblePppProfiles < filtered.length) {
+                                  setVisiblePppProfiles((prev) => Math.min(prev + 25, filtered.length));
+                                }
+                              }
+                            }}
+                            className="divide-y divide-black/[0.04] overflow-y-auto max-h-[515px] sm:max-h-[600px] overscroll-contain pb-2"
+                          >
+                            {filtered.slice(0, visiblePppProfiles).map((prof) => (
                               <div
                                 key={prof.id}
                                 onClick={() => handleOpenEditProfile(prof)}
@@ -4025,6 +4353,26 @@ export default function App() {
                                 </div>
                               </div>
                             ))}
+
+                            {filtered.length > visiblePppProfiles && (
+                              <div className="p-3 text-center border-t border-black/[0.04] bg-[#fbfbfd]">
+                                <button
+                                  type="button"
+                                  onClick={() => setVisiblePppProfiles((prev) => Math.min(prev + 50, filtered.length))}
+                                  className="w-full py-2.5 px-4 text-xs font-semibold text-apple-blue bg-apple-blue/10 hover:bg-apple-blue/15 active:scale-[0.98] rounded-xl transition-all min-h-[44px] flex items-center justify-center gap-1.5"
+                                >
+                                  <ChevronDown className="h-4 w-4 stroke-[2.2]" />
+                                  <span>Muat Lebih Banyak ({filtered.length - visiblePppProfiles} lagi)</span>
+                                  <span className="font-mono text-[11px] opacity-70">· Menampilkan {visiblePppProfiles} dari {filtered.length}</span>
+                                </button>
+                              </div>
+                            )}
+
+                            {visiblePppProfiles >= filtered.length && filtered.length > 25 && (
+                              <div className="py-2.5 px-4 text-center border-t border-black/[0.04] bg-[#fbfbfd]/60 text-[11px] font-mono text-apple-subtext">
+                                Semua {filtered.length} profil telah dimuat
+                              </div>
+                            )}
                           </div>
                         )}
                       </section>
@@ -4085,8 +4433,18 @@ export default function App() {
                             </div>
                           </div>
                         ) : (
-                          <div className="divide-y divide-black/[0.04] overflow-y-auto max-h-[515px] sm:max-h-[600px] overscroll-contain pb-2">
-                            {filtered.map((act) => (
+                          <div
+                            onScroll={(e) => {
+                              const el = e.currentTarget;
+                              if (el.scrollTop + el.clientHeight >= el.scrollHeight - 80) {
+                                if (visiblePppActive < filtered.length) {
+                                  setVisiblePppActive((prev) => Math.min(prev + 25, filtered.length));
+                                }
+                              }
+                            }}
+                            className="divide-y divide-black/[0.04] overflow-y-auto max-h-[515px] sm:max-h-[600px] overscroll-contain pb-2"
+                          >
+                            {filtered.slice(0, visiblePppActive).map((act) => (
                               <div
                                 key={act.id}
                                 className="px-4 py-2.5 sm:px-5 sm:py-3 flex items-center justify-between gap-3 bg-white hover:bg-[#fbfbfd]"
@@ -4131,6 +4489,26 @@ export default function App() {
                                 </div>
                               </div>
                             ))}
+
+                            {filtered.length > visiblePppActive && (
+                              <div className="p-3 text-center border-t border-black/[0.04] bg-[#fbfbfd]">
+                                <button
+                                  type="button"
+                                  onClick={() => setVisiblePppActive((prev) => Math.min(prev + 50, filtered.length))}
+                                  className="w-full py-2.5 px-4 text-xs font-semibold text-apple-blue bg-apple-blue/10 hover:bg-apple-blue/15 active:scale-[0.98] rounded-xl transition-all min-h-[44px] flex items-center justify-center gap-1.5"
+                                >
+                                  <ChevronDown className="h-4 w-4 stroke-[2.2]" />
+                                  <span>Muat Lebih Banyak ({filtered.length - visiblePppActive} lagi)</span>
+                                  <span className="font-mono text-[11px] opacity-70">· Menampilkan {visiblePppActive} dari {filtered.length}</span>
+                                </button>
+                              </div>
+                            )}
+
+                            {visiblePppActive >= filtered.length && filtered.length > 25 && (
+                              <div className="py-2.5 px-4 text-center border-t border-black/[0.04] bg-[#fbfbfd]/60 text-[11px] font-mono text-apple-subtext">
+                                Semua {filtered.length} sesi terhubung telah dimuat
+                              </div>
+                            )}
                           </div>
                         )}
                       </section>
@@ -4167,13 +4545,18 @@ export default function App() {
                       className="fixed inset-0 z-50 w-screen overflow-y-auto"
                       onClick={() => setSelectedSecretId(null)}
                     >
-                      <div className="flex min-h-full items-center justify-center p-4 sm:p-6">
+                      <div className="flex min-h-full items-end sm:items-center justify-center p-0 sm:p-4">
                         <div
-                          className="relative transform overflow-hidden rounded-[26px] sm:rounded-3xl bg-apple-card text-left shadow-ios-modal transition-all my-auto w-full max-w-lg border border-black/[0.08] animate-in fade-in zoom-in-95 duration-200"
+                          className="relative transform overflow-hidden rounded-t-[32px] sm:rounded-3xl bg-apple-card text-left shadow-[0_-10px_40px_rgba(0,0,0,0.14)] sm:shadow-ios-modal transition-all my-0 sm:my-auto w-full max-w-lg border-t sm:border border-black/[0.08] max-h-[92vh] sm:max-h-[85vh] flex flex-col animate-in slide-in-from-bottom duration-300 ease-out sm:zoom-in-95"
                           onClick={(e) => e.stopPropagation()}
                         >
+                          {/* iOS Drawer Grabber Handle */}
+                          <div className="w-full pt-3 pb-1 flex justify-center sm:hidden bg-[#fbfbfd] shrink-0">
+                            <div className="w-10 h-1.5 rounded-full bg-black/20" />
+                          </div>
+
                           {/* Header Modal */}
-                          <div className="px-6 pt-6 pb-4 border-b border-black/[0.06] flex items-center justify-between bg-[#fbfbfd]">
+                          <div className="px-5 pt-2 pb-3.5 sm:px-6 sm:pt-5 sm:pb-4 border-b border-black/[0.06] flex items-center justify-between bg-[#fbfbfd] shrink-0">
                             <div className="flex items-center gap-3">
                               <div
                                 className={`h-11 w-11 rounded-2xl flex items-center justify-center font-bold shrink-0 ${
@@ -4213,7 +4596,7 @@ export default function App() {
                           </div>
 
                           {/* Modal Body: Inset Grouped Info Details */}
-                          <div className="p-6 space-y-4">
+                          <div className="p-5 sm:p-6 space-y-4 overflow-y-auto overscroll-contain flex-1">
                             {/* Quick Status Pill Bar */}
                             <div className="flex items-center gap-2 flex-wrap">
                               <span
@@ -4394,7 +4777,7 @@ export default function App() {
                             </div>
 
                             {/* Action Buttons in Modal */}
-                            <div className="pt-2 flex flex-col gap-2">
+                            <div className="pt-2 flex flex-col gap-2 pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] sm:pb-0">
                               {/* Baris 1: Tombol Isolir & Extend */}
                               <div className="flex items-center gap-2">
                                 <button
@@ -4511,13 +4894,18 @@ export default function App() {
                     className="fixed inset-0 z-50 w-screen overflow-y-auto"
                     onClick={() => setIsAddUserModalOpen(false)}
                   >
-                    <div className="flex min-h-full items-center justify-center p-4 sm:p-6">
+                    <div className="flex min-h-full items-end sm:items-center justify-center p-0 sm:p-4">
                       <div
-                        className="relative transform overflow-hidden rounded-[26px] sm:rounded-3xl bg-apple-card text-left shadow-ios-modal transition-all my-auto w-full max-w-lg border border-black/[0.08] animate-in fade-in zoom-in-95 duration-200"
+                        className="relative transform overflow-hidden rounded-t-[32px] sm:rounded-3xl bg-apple-card text-left shadow-[0_-10px_40px_rgba(0,0,0,0.14)] sm:shadow-ios-modal transition-all my-0 sm:my-auto w-full max-w-lg border-t sm:border border-black/[0.08] max-h-[92vh] sm:max-h-[85vh] flex flex-col animate-in slide-in-from-bottom duration-300 ease-out sm:zoom-in-95"
                         onClick={(e) => e.stopPropagation()}
                       >
+                        {/* iOS Drawer Grabber Handle */}
+                        <div className="w-full pt-3 pb-1 flex justify-center sm:hidden bg-[#fbfbfd] shrink-0">
+                          <div className="w-10 h-1.5 rounded-full bg-black/20" />
+                        </div>
+
                         {/* Header Modal */}
-                        <div className="px-6 pt-6 pb-4 border-b border-black/[0.06] flex items-center justify-between bg-[#fbfbfd]">
+                        <div className="px-5 pt-2 pb-3.5 sm:px-6 sm:pt-5 sm:pb-4 border-b border-black/[0.06] flex items-center justify-between bg-[#fbfbfd] shrink-0">
                           <div className="flex items-center gap-3">
                             <div className="h-10 w-10 rounded-2xl bg-apple-blue/10 text-apple-blue flex items-center justify-center font-bold shrink-0">
                               <Plus className="h-5 w-5 stroke-[2.2]" />
@@ -4537,7 +4925,7 @@ export default function App() {
                           <button
                             type="button"
                             onClick={() => setIsAddUserModalOpen(false)}
-                            className="text-apple-subtext hover:text-apple-text rounded-full p-2 bg-black/[0.04] hover:bg-black/[0.08] transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
+                            className="text-apple-subtext hover:text-apple-text rounded-full p-2 bg-black/[0.04] hover:bg-black/[0.08] transition-all min-h-[36px] min-w-[36px] flex items-center justify-center"
                             title="Tutup modal"
                             aria-label="Tutup modal"
                           >
@@ -4546,7 +4934,7 @@ export default function App() {
                         </div>
 
                         {/* Form Body */}
-                        <form onSubmit={handleCreateNewUser} className="p-6 space-y-4">
+                        <form onSubmit={handleCreateNewUser} className="p-5 sm:p-6 space-y-4 overflow-y-auto overscroll-contain flex-1">
                           <div>
                             <label className="block text-xs font-bold text-apple-subtext mb-1.5 uppercase tracking-wider">
                               Username PPPoE <span className="text-rose-500">*</span>
@@ -4565,13 +4953,28 @@ export default function App() {
                             <label className="block text-xs font-bold text-apple-subtext mb-1.5 uppercase tracking-wider">
                               Password PPPoE
                             </label>
-                            <input
-                              type="text"
-                              value={newUserPass}
-                              onChange={(e) => setNewUserPass(e.target.value)}
-                              placeholder="misal: 123456 (opsional)"
-                              className="w-full min-h-[48px] rounded-2xl bg-apple-bg border-0 ring-1 ring-inset ring-black/[0.06] px-4 py-2.5 text-sm font-mono text-apple-text placeholder:text-apple-subtext/60 focus:outline-none focus:ring-2 focus:ring-apple-blue focus:bg-white transition-all shadow-sm"
-                            />
+                            <div className="relative">
+                              <input
+                                type={showNewUserPass ? 'text' : 'password'}
+                                value={newUserPass}
+                                onChange={(e) => setNewUserPass(e.target.value)}
+                                placeholder="misal: 123456 (opsional)"
+                                className="w-full min-h-[48px] rounded-2xl bg-apple-bg border-0 ring-1 ring-inset ring-black/[0.06] pl-4 pr-12 py-2.5 text-sm font-mono text-apple-text placeholder:text-apple-subtext/60 focus:outline-none focus:ring-2 focus:ring-apple-blue focus:bg-white transition-all shadow-sm"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setShowNewUserPass(!showNewUserPass)}
+                                className="absolute right-1 top-1/2 -translate-y-1/2 text-apple-subtext hover:text-apple-blue p-2 rounded-xl transition-all min-h-[44px] min-w-[44px] flex items-center justify-center active:scale-90"
+                                title={showNewUserPass ? 'Sembunyikan password' : 'Lihat password'}
+                                aria-label={showNewUserPass ? 'Sembunyikan password' : 'Lihat password'}
+                              >
+                                {showNewUserPass ? (
+                                  <EyeOff className="h-4 w-4 stroke-[2.2]" />
+                                ) : (
+                                  <Eye className="h-4 w-4 stroke-[2.2]" />
+                                )}
+                              </button>
+                            </div>
                           </div>
 
                           <div>
@@ -4625,7 +5028,7 @@ export default function App() {
                             </div>
                           </div>
 
-                          <div className="pt-2 flex items-center justify-end gap-2">
+                          <div className="pt-2 flex items-center justify-end gap-2 pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] sm:pb-0">
                             <button
                               type="button"
                               onClick={() => setIsAddUserModalOpen(false)}
@@ -4665,13 +5068,18 @@ export default function App() {
                     className="fixed inset-0 z-50 w-screen overflow-y-auto"
                     onClick={() => setIsProfileModalOpen(false)}
                   >
-                    <div className="flex min-h-full items-center justify-center p-4 sm:p-6">
+                    <div className="flex min-h-full items-end sm:items-center justify-center p-0 sm:p-4">
                       <div
-                        className="relative transform overflow-hidden rounded-[26px] sm:rounded-3xl bg-apple-card text-left shadow-ios-modal transition-all my-auto w-full max-w-lg border border-black/[0.08] animate-in fade-in zoom-in-95 duration-200"
+                        className="relative transform overflow-hidden rounded-t-[32px] sm:rounded-3xl bg-apple-card text-left shadow-[0_-10px_40px_rgba(0,0,0,0.14)] sm:shadow-ios-modal transition-all my-0 sm:my-auto w-full max-w-lg border-t sm:border border-black/[0.08] max-h-[92vh] sm:max-h-[85vh] flex flex-col animate-in slide-in-from-bottom duration-300 ease-out sm:zoom-in-95"
                         onClick={(e) => e.stopPropagation()}
                       >
+                        {/* iOS Drawer Grabber Handle */}
+                        <div className="w-full pt-3 pb-1 flex justify-center sm:hidden bg-[#fbfbfd] shrink-0">
+                          <div className="w-10 h-1.5 rounded-full bg-black/20" />
+                        </div>
+
                         {/* Header Modal */}
-                        <div className="px-6 pt-6 pb-4 border-b border-black/[0.06] flex items-center justify-between bg-[#fbfbfd]">
+                        <div className="px-5 pt-2 pb-3.5 sm:px-6 sm:pt-5 sm:pb-4 border-b border-black/[0.06] flex items-center justify-between bg-[#fbfbfd] shrink-0">
                           <div className="flex items-center gap-3">
                             <div className="h-10 w-10 rounded-2xl bg-apple-blue/10 text-apple-blue flex items-center justify-center font-bold shrink-0">
                               {editingProfileId ? (
@@ -4697,7 +5105,7 @@ export default function App() {
                           <button
                             type="button"
                             onClick={() => setIsProfileModalOpen(false)}
-                            className="text-apple-subtext hover:text-apple-text rounded-full p-2 bg-black/[0.04] hover:bg-black/[0.08] transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
+                            className="text-apple-subtext hover:text-apple-text rounded-full p-2 bg-black/[0.04] hover:bg-black/[0.08] transition-all min-h-[36px] min-w-[36px] flex items-center justify-center"
                             title="Tutup modal"
                             aria-label="Tutup modal"
                           >
@@ -4706,7 +5114,7 @@ export default function App() {
                         </div>
 
                         {/* Form Body */}
-                        <form onSubmit={handleSaveProfile} className="p-6 space-y-4">
+                        <form onSubmit={handleSaveProfile} className="p-5 sm:p-6 space-y-4 overflow-y-auto overscroll-contain flex-1">
                           <div>
                             <label className="block text-xs font-bold text-apple-subtext mb-1.5 uppercase tracking-wider">
                               Nama Profil <span className="text-rose-500">*</span>
@@ -4941,7 +5349,7 @@ export default function App() {
                   </div>
                 </div>
               )}
-            </div>
+            </motion.div>
           ) : activeTab === 'hotspot' ? (
             /* ============================================================= */
             /* HALAMAN HOTSPOT: APPLE SEGMENTED CONTROL [ USER | ACTIVE | PROFILE ] */
@@ -5003,7 +5411,14 @@ export default function App() {
               });
 
               return (
-                <div className="space-y-2.5 sm:space-y-3.5 w-full max-w-2xl mx-auto animate-in fade-in duration-300">
+                <motion.div
+                  key="tab-hotspot"
+                  variants={pageVariants}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                  className="space-y-2.5 sm:space-y-3.5 w-full max-w-2xl mx-auto"
+                >
                   {/* STICKY TOP CONTROLS: Segmented Control + Search & Filter Bar */}
                   <div className="sticky top-0 z-20 bg-apple-bg pt-0.5 pb-1 space-y-1.5">
                     {/* Apple Segmented Control Bar */}
@@ -5047,18 +5462,25 @@ export default function App() {
                               }}
                               className={`relative flex-1 py-1.5 px-1.5 text-xs font-semibold rounded-[10px] sm:rounded-[11px] active:scale-[0.98] transition-transform flex items-center justify-center gap-1.5 min-h-[40px] select-none ${
                                 isSelected
-                                  ? 'bg-white text-apple-text shadow-[0_1px_3px_rgba(0,0,0,0.10),0_1px_2px_rgba(0,0,0,0.06)]'
+                                  ? 'text-apple-text'
                                   : 'text-apple-subtext hover:text-apple-text hover:bg-black/[0.02]'
                               }`}
                             >
+                              {isSelected && (
+                                <motion.div
+                                  layoutId="hotspotSubTabActivePill"
+                                  className="absolute inset-0 bg-white rounded-[10px] sm:rounded-[11px] shadow-[0_1px_3px_rgba(0,0,0,0.10),0_1px_2px_rgba(0,0,0,0.06)] z-0"
+                                  transition={figmaSpring.quick}
+                                />
+                              )}
                               <IconComponent
-                                className={`h-3.5 w-3.5 stroke-[2.2] ${
+                                className={`h-3.5 w-3.5 stroke-[2.2] relative z-10 ${
                                   isSelected ? 'text-apple-blue' : 'text-apple-subtext'
                                 }`}
                               />
-                              <span className="tracking-tight">{tab.label}</span>
+                              <span className="tracking-tight relative z-10">{tab.label}</span>
                               <span
-                                className={`text-[10px] px-1.5 py-0.5 rounded-md font-mono ${
+                                className={`text-[10px] px-1.5 py-0.5 rounded-md font-mono relative z-10 ${
                                   isSelected
                                     ? 'bg-apple-blue/10 text-apple-blue font-bold'
                                     : 'bg-black/[0.05] text-apple-subtext font-medium'
@@ -5067,7 +5489,7 @@ export default function App() {
                                 {tab.count}
                               </span>
                               {tab.id === 'active' && isSelected && (
-                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse -ml-0.5" />
+                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse -ml-0.5 relative z-10" />
                               )}
                             </button>
                           </React.Fragment>
@@ -5334,8 +5756,18 @@ export default function App() {
                           </div>
                         </div>
                       ) : (
-                        <div className="divide-y divide-black/[0.04] overflow-y-auto max-h-[515px] sm:max-h-[600px] overscroll-contain pb-2">
-                          {filteredUsers.map((user) => {
+                        <div
+                          onScroll={(e) => {
+                            const el = e.currentTarget;
+                            if (el.scrollTop + el.clientHeight >= el.scrollHeight - 80) {
+                              if (visibleHotspotUsers < filteredUsers.length) {
+                                setVisibleHotspotUsers((prev) => Math.min(prev + 25, filteredUsers.length));
+                              }
+                            }
+                          }}
+                          className="divide-y divide-black/[0.04] overflow-y-auto max-h-[515px] sm:max-h-[600px] overscroll-contain pb-2"
+                        >
+                          {filteredUsers.slice(0, visibleHotspotUsers).map((user) => {
                             const userProf = hotspotProfiles.find((p) => p.name === user.profile);
                             const activeSession = hotspotActive.find(
                               (a) => a.user.toLowerCase() === user.name.toLowerCase()
@@ -5417,6 +5849,26 @@ export default function App() {
                               </div>
                             );
                           })}
+
+                          {filteredUsers.length > visibleHotspotUsers && (
+                            <div className="p-3 text-center border-t border-black/[0.04] bg-[#fbfbfd]">
+                              <button
+                                type="button"
+                                onClick={() => setVisibleHotspotUsers((prev) => Math.min(prev + 50, filteredUsers.length))}
+                                className="w-full py-2.5 px-4 text-xs font-semibold text-apple-blue bg-apple-blue/10 hover:bg-apple-blue/15 active:scale-[0.98] rounded-xl transition-all min-h-[44px] flex items-center justify-center gap-1.5"
+                              >
+                                <ChevronDown className="h-4 w-4 stroke-[2.2]" />
+                                <span>Muat Lebih Banyak ({filteredUsers.length - visibleHotspotUsers} lagi)</span>
+                                <span className="font-mono text-[11px] opacity-70">· Menampilkan {visibleHotspotUsers} dari {filteredUsers.length}</span>
+                              </button>
+                            </div>
+                          )}
+
+                          {visibleHotspotUsers >= filteredUsers.length && filteredUsers.length > 25 && (
+                            <div className="py-2.5 px-4 text-center border-t border-black/[0.04] bg-[#fbfbfd]/60 text-[11px] font-mono text-apple-subtext">
+                              Semua {filteredUsers.length} user telah dimuat
+                            </div>
+                          )}
                         </div>
                       )}
                     </section>
@@ -5452,8 +5904,18 @@ export default function App() {
                           </div>
                         </div>
                       ) : (
-                        <div className="divide-y divide-black/[0.04] overflow-y-auto max-h-[515px] sm:max-h-[600px] overscroll-contain pb-2">
-                          {filteredActive.map((session) => {
+                        <div
+                          onScroll={(e) => {
+                            const el = e.currentTarget;
+                            if (el.scrollTop + el.clientHeight >= el.scrollHeight - 80) {
+                              if (visibleHotspotActive < filteredActive.length) {
+                                setVisibleHotspotActive((prev) => Math.min(prev + 25, filteredActive.length));
+                              }
+                            }
+                          }}
+                          className="divide-y divide-black/[0.04] overflow-y-auto max-h-[515px] sm:max-h-[600px] overscroll-contain pb-2"
+                        >
+                          {filteredActive.slice(0, visibleHotspotActive).map((session) => {
                             const userObj = hotspotUsers.find(
                               (u) => u.name.toLowerCase() === session.user.toLowerCase()
                             );
@@ -5552,6 +6014,26 @@ export default function App() {
                               </div>
                             );
                           })}
+
+                          {filteredActive.length > visibleHotspotActive && (
+                            <div className="p-3 text-center border-t border-black/[0.04] bg-[#fbfbfd]">
+                              <button
+                                type="button"
+                                onClick={() => setVisibleHotspotActive((prev) => Math.min(prev + 50, filteredActive.length))}
+                                className="w-full py-2.5 px-4 text-xs font-semibold text-apple-blue bg-apple-blue/10 hover:bg-apple-blue/15 active:scale-[0.98] rounded-xl transition-all min-h-[44px] flex items-center justify-center gap-1.5"
+                              >
+                                <ChevronDown className="h-4 w-4 stroke-[2.2]" />
+                                <span>Muat Lebih Banyak ({filteredActive.length - visibleHotspotActive} lagi)</span>
+                                <span className="font-mono text-[11px] opacity-70">· Menampilkan {visibleHotspotActive} dari {filteredActive.length}</span>
+                              </button>
+                            </div>
+                          )}
+
+                          {visibleHotspotActive >= filteredActive.length && filteredActive.length > 25 && (
+                            <div className="py-2.5 px-4 text-center border-t border-black/[0.04] bg-[#fbfbfd]/60 text-[11px] font-mono text-apple-subtext">
+                              Semua {filteredActive.length} sesi online telah dimuat
+                            </div>
+                          )}
                         </div>
                       )}
                     </section>
@@ -5586,8 +6068,18 @@ export default function App() {
                           </div>
                         </div>
                       ) : (
-                        <div className="divide-y divide-black/[0.04] overflow-y-auto max-h-[515px] sm:max-h-[600px] overscroll-contain pb-2">
-                          {filteredProfiles.map((profile) => {
+                        <div
+                          onScroll={(e) => {
+                            const el = e.currentTarget;
+                            if (el.scrollTop + el.clientHeight >= el.scrollHeight - 80) {
+                              if (visibleHotspotProfiles < filteredProfiles.length) {
+                                setVisibleHotspotProfiles((prev) => Math.min(prev + 25, filteredProfiles.length));
+                              }
+                            }
+                          }}
+                          className="divide-y divide-black/[0.04] overflow-y-auto max-h-[515px] sm:max-h-[600px] overscroll-contain pb-2"
+                        >
+                          {filteredProfiles.slice(0, visibleHotspotProfiles).map((profile) => {
                             const userCount = hotspotUsers.filter(
                               (u) => u.profile === profile.name && !isHiddenDefaultUser(u.name)
                             ).length;
@@ -5664,6 +6156,26 @@ export default function App() {
                               </div>
                             );
                           })}
+
+                          {filteredProfiles.length > visibleHotspotProfiles && (
+                            <div className="p-3 text-center border-t border-black/[0.04] bg-[#fbfbfd]">
+                              <button
+                                type="button"
+                                onClick={() => setVisibleHotspotProfiles((prev) => Math.min(prev + 50, filteredProfiles.length))}
+                                className="w-full py-2.5 px-4 text-xs font-semibold text-apple-blue bg-apple-blue/10 hover:bg-apple-blue/15 active:scale-[0.98] rounded-xl transition-all min-h-[44px] flex items-center justify-center gap-1.5"
+                              >
+                                <ChevronDown className="h-4 w-4 stroke-[2.2]" />
+                                <span>Muat Lebih Banyak ({filteredProfiles.length - visibleHotspotProfiles} lagi)</span>
+                                <span className="font-mono text-[11px] opacity-70">· Menampilkan {visibleHotspotProfiles} dari {filteredProfiles.length}</span>
+                              </button>
+                            </div>
+                          )}
+
+                          {visibleHotspotProfiles >= filteredProfiles.length && filteredProfiles.length > 25 && (
+                            <div className="py-2.5 px-4 text-center border-t border-black/[0.04] bg-[#fbfbfd]/60 text-[11px] font-mono text-apple-subtext">
+                              Semua {filteredProfiles.length} profil telah dimuat
+                            </div>
+                          )}
                         </div>
                       )}
                     </section>
@@ -5686,13 +6198,18 @@ export default function App() {
                         className="fixed inset-0 z-50 w-screen overflow-y-auto"
                         onClick={() => setIsAddHotspotUserModalOpen(false)}
                       >
-                        <div className="flex min-h-full items-center justify-center p-4 sm:p-6">
+                        <div className="flex min-h-full items-end sm:items-center justify-center p-0 sm:p-4">
                           <div
-                            className="relative transform overflow-hidden rounded-[26px] sm:rounded-3xl bg-apple-card text-left shadow-ios-modal transition-all my-auto w-full max-w-lg border border-black/[0.08] animate-in fade-in zoom-in-95 duration-200"
+                            className="relative transform overflow-hidden rounded-t-[32px] sm:rounded-3xl bg-apple-card text-left shadow-[0_-10px_40px_rgba(0,0,0,0.14)] sm:shadow-ios-modal transition-all my-0 sm:my-auto w-full max-w-lg border-t sm:border border-black/[0.08] max-h-[92vh] sm:max-h-[85vh] flex flex-col animate-in slide-in-from-bottom duration-300 ease-out sm:zoom-in-95"
                             onClick={(e) => e.stopPropagation()}
                           >
+                            {/* iOS Drawer Grabber Handle */}
+                            <div className="w-full pt-3 pb-1 flex justify-center sm:hidden bg-[#fbfbfd] shrink-0">
+                              <div className="w-10 h-1.5 rounded-full bg-black/20" />
+                            </div>
+
                             {/* Header Modal */}
-                            <div className="px-6 pt-6 pb-4 border-b border-black/[0.06] flex items-center justify-between bg-[#fbfbfd]">
+                            <div className="px-5 pt-2 pb-3.5 sm:px-6 sm:pt-5 sm:pb-4 border-b border-black/[0.06] flex items-center justify-between bg-[#fbfbfd] shrink-0">
                               <div className="flex items-center gap-3">
                                 <div className="h-10 w-10 rounded-2xl bg-apple-blue/10 text-apple-blue flex items-center justify-center font-bold shrink-0">
                                   <Ticket className="h-5 w-5 stroke-[2.2]" />
@@ -5712,7 +6229,7 @@ export default function App() {
                               <button
                                 type="button"
                                 onClick={() => setIsAddHotspotUserModalOpen(false)}
-                                className="text-apple-subtext hover:text-apple-text rounded-full p-2 bg-black/[0.04] hover:bg-black/[0.08] transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
+                                className="text-apple-subtext hover:text-apple-text rounded-full p-2 bg-black/[0.04] hover:bg-black/[0.08] transition-all min-h-[36px] min-w-[36px] flex items-center justify-center"
                                 title="Tutup modal"
                                 aria-label="Tutup modal"
                               >
@@ -5721,7 +6238,7 @@ export default function App() {
                             </div>
 
                             {/* Form Body */}
-                            <form onSubmit={handleCreateHotspotUser} className="p-6 space-y-4">
+                            <form onSubmit={handleCreateHotspotUser} className="p-5 sm:p-6 space-y-4 overflow-y-auto overscroll-contain flex-1">
                               <div>
                                 <label className="block text-xs font-bold text-apple-subtext mb-1.5 uppercase tracking-wider">
                                   Username Hotspot <span className="text-rose-500">*</span>
@@ -5740,13 +6257,28 @@ export default function App() {
                                 <label className="block text-xs font-bold text-apple-subtext mb-1.5 uppercase tracking-wider">
                                   Password Hotspot
                                 </label>
-                                <input
-                                  type="text"
-                                  value={newHotspotUserPass}
-                                  onChange={(e) => setNewHotspotUserPass(e.target.value)}
-                                  placeholder="misal: 123456 (opsional untuk voucher)"
-                                  className="w-full min-h-[48px] rounded-2xl bg-apple-bg border-0 ring-1 ring-inset ring-black/[0.06] px-4 py-2.5 text-sm font-mono text-apple-text placeholder:text-apple-subtext/60 focus:outline-none focus:ring-2 focus:ring-apple-blue focus:bg-white transition-all shadow-sm"
-                                />
+                                <div className="relative">
+                                  <input
+                                    type={showNewHotspotPass ? 'text' : 'password'}
+                                    value={newHotspotUserPass}
+                                    onChange={(e) => setNewHotspotUserPass(e.target.value)}
+                                    placeholder="misal: 123456 (opsional untuk voucher)"
+                                    className="w-full min-h-[48px] rounded-2xl bg-apple-bg border-0 ring-1 ring-inset ring-black/[0.06] pl-4 pr-12 py-2.5 text-sm font-mono text-apple-text placeholder:text-apple-subtext/60 focus:outline-none focus:ring-2 focus:ring-apple-blue focus:bg-white transition-all shadow-sm"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowNewHotspotPass(!showNewHotspotPass)}
+                                    className="absolute right-1 top-1/2 -translate-y-1/2 text-apple-subtext hover:text-apple-blue p-2 rounded-xl transition-all min-h-[44px] min-w-[44px] flex items-center justify-center active:scale-90"
+                                    title={showNewHotspotPass ? 'Sembunyikan password' : 'Lihat password'}
+                                    aria-label={showNewHotspotPass ? 'Sembunyikan password' : 'Lihat password'}
+                                  >
+                                    {showNewHotspotPass ? (
+                                      <EyeOff className="h-4 w-4 stroke-[2.2]" />
+                                    ) : (
+                                      <Eye className="h-4 w-4 stroke-[2.2]" />
+                                    )}
+                                  </button>
+                                </div>
                               </div>
 
                               <div>
@@ -5789,7 +6321,7 @@ export default function App() {
                               </div>
 
                               {/* Footer Action Buttons */}
-                              <div className="pt-3 border-t border-black/[0.06] flex items-center justify-end gap-2">
+                              <div className="pt-3 border-t border-black/[0.06] flex items-center justify-end gap-2 pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] sm:pb-0">
                                 <button
                                   type="button"
                                   onClick={() => setIsAddHotspotUserModalOpen(false)}
@@ -5829,13 +6361,18 @@ export default function App() {
                         className="fixed inset-0 z-50 w-screen overflow-y-auto"
                         onClick={() => setSelectedHotspotUser(null)}
                       >
-                        <div className="flex min-h-full items-center justify-center p-4 sm:p-6">
+                        <div className="flex min-h-full items-end sm:items-center justify-center p-0 sm:p-4">
                           <div
-                            className="relative transform overflow-hidden rounded-[26px] sm:rounded-3xl bg-apple-card text-left shadow-ios-modal transition-all my-auto w-full max-w-lg border border-black/[0.08] animate-in fade-in zoom-in-95 duration-200"
+                            className="relative transform overflow-hidden rounded-t-[32px] sm:rounded-3xl bg-apple-card text-left shadow-[0_-10px_40px_rgba(0,0,0,0.14)] sm:shadow-ios-modal transition-all my-0 sm:my-auto w-full max-w-lg border-t sm:border border-black/[0.08] max-h-[92vh] sm:max-h-[85vh] flex flex-col animate-in slide-in-from-bottom duration-300 ease-out sm:zoom-in-95"
                             onClick={(e) => e.stopPropagation()}
                           >
+                            {/* iOS Drawer Grabber Handle */}
+                            <div className="w-full pt-3 pb-1 flex justify-center sm:hidden bg-[#fbfbfd] shrink-0">
+                              <div className="w-10 h-1.5 rounded-full bg-black/20" />
+                            </div>
+
                             {/* Header Modal */}
-                            <div className="px-6 pt-6 pb-4 border-b border-black/[0.06] flex items-center justify-between bg-[#fbfbfd]">
+                            <div className="px-5 pt-2 pb-3.5 sm:px-6 sm:pt-5 sm:pb-4 border-b border-black/[0.06] flex items-center justify-between bg-[#fbfbfd] shrink-0">
                               <div className="flex items-center gap-3">
                                 <div className="h-10 w-10 rounded-2xl bg-apple-blue/10 text-apple-blue flex items-center justify-center font-bold shrink-0">
                                   <Pencil className="h-5 w-5 stroke-[2.2]" />
@@ -5855,7 +6392,7 @@ export default function App() {
                               <button
                                 type="button"
                                 onClick={() => setSelectedHotspotUser(null)}
-                                className="text-apple-subtext hover:text-apple-text rounded-full p-2 bg-black/[0.04] hover:bg-black/[0.08] transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
+                                className="text-apple-subtext hover:text-apple-text rounded-full p-2 bg-black/[0.04] hover:bg-black/[0.08] transition-all min-h-[36px] min-w-[36px] flex items-center justify-center"
                                 title="Tutup modal"
                                 aria-label="Tutup modal"
                               >
@@ -5864,7 +6401,7 @@ export default function App() {
                             </div>
 
                             {/* Form & Content */}
-                            <form onSubmit={handleSaveEditHotspotUser} className="p-6 space-y-4">
+                            <form onSubmit={handleSaveEditHotspotUser} className="p-5 sm:p-6 space-y-4 overflow-y-auto overscroll-contain flex-1">
                               {/* Summary Info Card */}
                               {(() => {
                                 const modalProf = hotspotProfiles.find((p) => p.name === selectedHotspotUser.profile);
@@ -5977,13 +6514,28 @@ export default function App() {
                                 <label className="block text-xs font-bold text-apple-subtext mb-1.5 uppercase tracking-wider">
                                   Password Baru
                                 </label>
-                                <input
-                                  type="text"
-                                  value={editHotspotUserPass}
-                                  onChange={(e) => setEditHotspotUserPass(e.target.value)}
-                                  placeholder="Biarkan kosong jika tidak ingin mengubah password"
-                                  className="w-full min-h-[48px] rounded-2xl bg-apple-bg border-0 ring-1 ring-inset ring-black/[0.06] px-4 py-2.5 text-sm font-mono text-apple-text placeholder:text-apple-subtext/60 focus:outline-none focus:ring-2 focus:ring-apple-blue focus:bg-white transition-all shadow-sm"
-                                />
+                                <div className="relative">
+                                  <input
+                                    type={showEditHotspotPass ? 'text' : 'password'}
+                                    value={editHotspotUserPass}
+                                    onChange={(e) => setEditHotspotUserPass(e.target.value)}
+                                    placeholder="Biarkan kosong jika tidak ingin mengubah password"
+                                    className="w-full min-h-[48px] rounded-2xl bg-apple-bg border-0 ring-1 ring-inset ring-black/[0.06] pl-4 pr-12 py-2.5 text-sm font-mono text-apple-text placeholder:text-apple-subtext/60 focus:outline-none focus:ring-2 focus:ring-apple-blue focus:bg-white transition-all shadow-sm"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowEditHotspotPass(!showEditHotspotPass)}
+                                    className="absolute right-1 top-1/2 -translate-y-1/2 text-apple-subtext hover:text-apple-blue p-2 rounded-xl transition-all min-h-[44px] min-w-[44px] flex items-center justify-center active:scale-90"
+                                    title={showEditHotspotPass ? 'Sembunyikan password' : 'Lihat password'}
+                                    aria-label={showEditHotspotPass ? 'Sembunyikan password' : 'Lihat password'}
+                                  >
+                                    {showEditHotspotPass ? (
+                                      <EyeOff className="h-4 w-4 stroke-[2.2]" />
+                                    ) : (
+                                      <Eye className="h-4 w-4 stroke-[2.2]" />
+                                    )}
+                                  </button>
+                                </div>
                               </div>
 
                               <div>
@@ -6105,13 +6657,18 @@ export default function App() {
                         className="fixed inset-0 z-50 w-screen overflow-y-auto"
                         onClick={() => setIsHotspotProfileModalOpen(false)}
                       >
-                        <div className="flex min-h-full items-center justify-center p-4 sm:p-6">
+                        <div className="flex min-h-full items-end sm:items-center justify-center p-0 sm:p-4">
                           <div
-                            className="relative transform overflow-hidden rounded-[26px] sm:rounded-3xl bg-apple-card text-left shadow-ios-modal transition-all my-auto w-full max-w-lg border border-black/[0.08] animate-in fade-in zoom-in-95 duration-200"
+                            className="relative transform overflow-hidden rounded-t-[32px] sm:rounded-3xl bg-apple-card text-left shadow-[0_-10px_40px_rgba(0,0,0,0.14)] sm:shadow-ios-modal transition-all my-0 sm:my-auto w-full max-w-lg border-t sm:border border-black/[0.08] max-h-[92vh] sm:max-h-[85vh] flex flex-col animate-in slide-in-from-bottom duration-300 ease-out sm:zoom-in-95"
                             onClick={(e) => e.stopPropagation()}
                           >
+                            {/* iOS Drawer Grabber Handle */}
+                            <div className="w-full pt-3 pb-1 flex justify-center sm:hidden bg-[#fbfbfd] shrink-0">
+                              <div className="w-10 h-1.5 rounded-full bg-black/20" />
+                            </div>
+
                             {/* Header Modal */}
-                            <div className="px-6 pt-6 pb-4 border-b border-black/[0.06] flex items-center justify-between bg-[#fbfbfd]">
+                            <div className="px-5 pt-2 pb-3.5 sm:px-6 sm:pt-5 sm:pb-4 border-b border-black/[0.06] flex items-center justify-between bg-[#fbfbfd] shrink-0">
                               <div className="flex items-center gap-3">
                                 <div className="h-10 w-10 rounded-2xl bg-apple-blue/10 text-apple-blue flex items-center justify-center font-bold shrink-0">
                                   {editingHotspotProfileId ? (
@@ -6139,7 +6696,7 @@ export default function App() {
                               <button
                                 type="button"
                                 onClick={() => setIsHotspotProfileModalOpen(false)}
-                                className="text-apple-subtext hover:text-apple-text rounded-full p-2 bg-black/[0.04] hover:bg-black/[0.08] transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
+                                className="text-apple-subtext hover:text-apple-text rounded-full p-2 bg-black/[0.04] hover:bg-black/[0.08] transition-all min-h-[36px] min-w-[36px] flex items-center justify-center"
                                 title="Tutup modal"
                                 aria-label="Tutup modal"
                               >
@@ -6148,7 +6705,7 @@ export default function App() {
                             </div>
 
                             {/* Form Body */}
-                            <form onSubmit={handleSaveHotspotProfile} className="p-6 space-y-4">
+                            <form onSubmit={handleSaveHotspotProfile} className="p-5 sm:p-6 space-y-4 overflow-y-auto overscroll-contain flex-1">
                               <div>
                                 <label className="block text-xs font-bold text-apple-subtext mb-1.5 uppercase tracking-wider">
                                   Nama Profil <span className="text-rose-500">*</span>
@@ -6385,14 +6942,21 @@ export default function App() {
                       </div>
                     </div>
                   )}
-                </div>
+                </motion.div>
               );
             })()
           ) : activeTab === 'dhcp' ? (
             /* ============================================================= */
             /* HALAMAN DHCP LEASES (APPLE HIG STYLE)                         */
             /* ============================================================= */
-            <div className="space-y-2.5 sm:space-y-3.5 w-full max-w-2xl mx-auto animate-in fade-in duration-300">
+            <motion.div
+              key="tab-dhcp"
+              variants={pageVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              className="space-y-2.5 sm:space-y-3.5 w-full max-w-2xl mx-auto"
+            >
               {/* STICKY TOP CONTROLS: Segmented Filter Bar + Search Bar */}
               <div className="sticky top-0 z-20 bg-apple-bg pt-0.5 pb-1 space-y-1.5">
                 {/* Apple Segmented Control Filter */}
@@ -6636,8 +7200,18 @@ export default function App() {
                         </div>
                       </div>
                     ) : (
-                      <div className="divide-y divide-black/[0.04] overflow-y-auto max-h-[515px] sm:max-h-[600px] overscroll-contain pb-2">
-                        {filtered.map((lease) => {
+                      <div
+                        onScroll={(e) => {
+                          const el = e.currentTarget;
+                          if (el.scrollTop + el.clientHeight >= el.scrollHeight - 80) {
+                            if (visibleDhcpLeases < filtered.length) {
+                              setVisibleDhcpLeases((prev) => Math.min(prev + 25, filtered.length));
+                            }
+                          }
+                        }}
+                        className="divide-y divide-black/[0.04] overflow-y-auto max-h-[515px] sm:max-h-[600px] overscroll-contain pb-2"
+                      >
+                        {filtered.slice(0, visibleDhcpLeases).map((lease) => {
                           const status = (lease.status || 'unknown').toLowerCase();
                           const isBound = status === 'bound';
                           const isDynamic = lease.dynamic === true || lease.dynamic === 'true';
@@ -6727,6 +7301,26 @@ export default function App() {
                             </div>
                           );
                         })}
+
+                        {filtered.length > visibleDhcpLeases && (
+                          <div className="p-3 text-center border-t border-black/[0.04] bg-[#fbfbfd]">
+                            <button
+                              type="button"
+                              onClick={() => setVisibleDhcpLeases((prev) => Math.min(prev + 50, filtered.length))}
+                              className="w-full py-2.5 px-4 text-xs font-semibold text-apple-blue bg-apple-blue/10 hover:bg-apple-blue/15 active:scale-[0.98] rounded-xl transition-all min-h-[44px] flex items-center justify-center gap-1.5"
+                            >
+                              <ChevronDown className="h-4 w-4 stroke-[2.2]" />
+                              <span>Muat Lebih Banyak ({filtered.length - visibleDhcpLeases} lagi)</span>
+                              <span className="font-mono text-[11px] opacity-70">· Menampilkan {visibleDhcpLeases} dari {filtered.length}</span>
+                            </button>
+                          </div>
+                        )}
+
+                        {visibleDhcpLeases >= filtered.length && filtered.length > 25 && (
+                          <div className="py-2.5 px-4 text-center border-t border-black/[0.04] bg-[#fbfbfd]/60 text-[11px] font-mono text-apple-subtext">
+                            Semua {filtered.length} perangkat telah dimuat
+                          </div>
+                        )}
                       </div>
                     )}
                   </section>
@@ -6750,13 +7344,18 @@ export default function App() {
                     className="fixed inset-0 z-50 w-screen overflow-y-auto"
                     onClick={() => setSelectedLease(null)}
                   >
-                    <div className="flex min-h-full items-center justify-center p-4 sm:p-6">
+                    <div className="flex min-h-full items-end sm:items-center justify-center p-0 sm:p-4">
                       <div
-                        className="relative transform overflow-hidden rounded-[26px] sm:rounded-3xl bg-apple-card text-left shadow-ios-modal transition-all my-auto w-full max-w-lg border border-black/[0.08] animate-in fade-in zoom-in-95 duration-200"
+                        className="relative transform overflow-hidden rounded-t-[32px] sm:rounded-3xl bg-apple-card text-left shadow-[0_-10px_40px_rgba(0,0,0,0.14)] sm:shadow-ios-modal transition-all my-0 sm:my-auto w-full max-w-lg border-t sm:border border-black/[0.08] max-h-[92vh] sm:max-h-[85vh] flex flex-col animate-in slide-in-from-bottom duration-300 ease-out sm:zoom-in-95"
                         onClick={(e) => e.stopPropagation()}
                       >
+                        {/* iOS Drawer Grabber Handle */}
+                        <div className="w-full pt-3 pb-1 flex justify-center sm:hidden bg-[#fbfbfd] shrink-0">
+                          <div className="w-10 h-1.5 rounded-full bg-black/20" />
+                        </div>
+
                         {/* Header Modal */}
-                        <div className="px-6 pt-6 pb-4 border-b border-black/[0.06] flex items-center justify-between bg-[#fbfbfd]">
+                        <div className="px-5 pt-2 pb-3.5 sm:px-6 sm:pt-5 sm:pb-4 border-b border-black/[0.06] flex items-center justify-between bg-[#fbfbfd] shrink-0">
                           <div className="flex items-center gap-3">
                             <div className="h-10 w-10 rounded-2xl bg-apple-blue/10 text-apple-blue flex items-center justify-center font-bold shrink-0">
                               <Network className="h-5 w-5 stroke-[2.2]" />
@@ -6776,7 +7375,7 @@ export default function App() {
                           <button
                             type="button"
                             onClick={() => setSelectedLease(null)}
-                            className="text-apple-subtext hover:text-apple-text rounded-full p-2 bg-black/[0.04] hover:bg-black/[0.08] transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
+                            className="text-apple-subtext hover:text-apple-text rounded-full p-2 bg-black/[0.04] hover:bg-black/[0.08] transition-all min-h-[36px] min-w-[36px] flex items-center justify-center"
                             title="Tutup modal"
                             aria-label="Tutup modal"
                           >
@@ -6785,7 +7384,7 @@ export default function App() {
                         </div>
 
                         {/* Content Body: Inset Grouped Details */}
-                        <div className="p-6 space-y-4">
+                        <div className="p-5 sm:p-6 space-y-4 overflow-y-auto overscroll-contain flex-1">
                           <div className="bg-apple-bg rounded-2xl p-4 space-y-3 border border-black/[0.04]">
                             <div className="flex items-center justify-between text-xs py-1 border-b border-black/[0.04]">
                               <span className="text-apple-subtext font-medium">Alamat IP:</span>
@@ -6880,7 +7479,7 @@ export default function App() {
                           </div>
 
                           {/* Action Buttons */}
-                          <div className="space-y-2.5 pt-2">
+                          <div className="space-y-2.5 pt-2 pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] sm:pb-0">
                             {/* Baris 1: Jadikan Static / Lepas Static & Buat Akun PPPoE */}
                             <div className="grid grid-cols-2 gap-2">
                               {selectedLease.dynamic === true || selectedLease.dynamic === 'true' ? (
@@ -6983,12 +7582,19 @@ export default function App() {
                   </div>
                 </div>
               )}
-            </div>
+            </motion.div>
           ) : (
             /* ============================================================= */
             /* HALAMAN DASHBOARD (SYSTEM INFO MIKROTIK - APPLE HIG STYLE)   */
             /* ============================================================= */
-            <div className="space-y-3 sm:space-y-4 w-full max-w-4xl mx-auto animate-in fade-in duration-300">
+            <motion.div
+              key="tab-beranda"
+              variants={pageVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              className="space-y-3 sm:space-y-4 w-full max-w-4xl mx-auto"
+            >
               {/* Top Router Status & Latency Banner */}
               <div className="bg-apple-card rounded-2xl border border-black/[0.06] p-3 sm:px-4 sm:py-3 shadow-apple flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -7367,10 +7973,155 @@ export default function App() {
                   </div>
                 </div>
               </section>
-            </div>
+            </motion.div>
           )}
-        </div>
-      </main>
+        </AnimatePresence>
+      </div>
+    </main>
+
+      {/* MODAL KONFIRMASI LOGOUT (APPLE iOS HIG) */}
+      <AnimatePresence>
+        {isLogoutConfirmOpen && (
+          <div
+            className="relative z-50"
+            aria-labelledby="logout-confirm-title"
+            role="dialog"
+            aria-modal="true"
+          >
+            <motion.div
+              variants={modalBackdropVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              className="fixed inset-0 bg-black/40 backdrop-blur-sm"
+              onClick={() => setIsLogoutConfirmOpen(false)}
+            />
+            <div className="fixed inset-0 z-50 overflow-y-auto">
+              <div className="flex min-h-full items-end sm:items-center justify-center p-0 sm:p-4 text-center">
+                <motion.div
+                  variants={modalSheetVariants}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                  className="relative transform overflow-hidden rounded-t-[32px] sm:rounded-3xl bg-apple-card text-left shadow-[0_-10px_40px_rgba(0,0,0,0.14)] sm:shadow-ios-modal w-full sm:max-w-md flex flex-col border-t sm:border border-black/[0.08]"
+                >
+                  {/* iOS Drawer Grabber Handle */}
+                  <div className="w-full pt-3 pb-1 flex justify-center sm:hidden bg-[#fbfbfd] shrink-0">
+                    <div className="w-10 h-1.5 rounded-full bg-black/20" />
+                  </div>
+
+                  <div className="p-6 text-center">
+                    <div className="h-12 w-12 rounded-full bg-rose-500/10 text-rose-600 mx-auto flex items-center justify-center mb-4">
+                      <LogOut className="h-6 w-6 stroke-[2.2]" />
+                    </div>
+                    <h3 id="logout-confirm-title" className="text-base sm:text-lg font-bold text-apple-text tracking-tight mb-2">
+                      Keluar dari Akun?
+                    </h3>
+                    <p className="text-xs sm:text-sm text-apple-subtext leading-relaxed mb-6">
+                      Apakah Anda yakin ingin mengakhiri sesi monitor saat ini? Anda perlu memasukkan kembali ID User dan Password untuk masuk.
+                    </p>
+
+                    <div className="flex items-center gap-3 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] sm:pb-0">
+                      <button
+                        type="button"
+                        onClick={() => setIsLogoutConfirmOpen(false)}
+                        className="flex-1 min-h-[48px] rounded-2xl bg-black/[0.05] hover:bg-black/[0.08] active:scale-[0.98] text-apple-text font-semibold text-xs sm:text-sm transition-all tap-spring"
+                      >
+                        Batal
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsLogoutConfirmOpen(false);
+                          handleLogout();
+                        }}
+                        className="flex-1 min-h-[48px] rounded-2xl bg-rose-600 hover:bg-rose-700 active:scale-[0.98] text-white font-semibold text-xs sm:text-sm shadow-xs transition-all flex items-center justify-center gap-1.5 tap-spring"
+                      >
+                        <LogOut className="h-4 w-4 stroke-[2.2]" />
+                        <span>Ya, Keluar</span>
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL KONFIRMASI HAPUS ROUTER MIKROTIK (APPLE iOS HIG) */}
+      <AnimatePresence>
+        {deletingRouterTarget && (
+          <div
+            className="relative z-50"
+            aria-labelledby="delete-router-title"
+            role="dialog"
+            aria-modal="true"
+          >
+            <motion.div
+              variants={modalBackdropVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              className="fixed inset-0 bg-black/40 backdrop-blur-sm"
+              onClick={() => setDeletingRouterTarget(null)}
+            />
+            <div className="fixed inset-0 z-50 overflow-y-auto">
+              <div className="flex min-h-full items-end sm:items-center justify-center p-0 sm:p-4 text-center">
+                <motion.div
+                  variants={modalSheetVariants}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                  className="relative transform overflow-hidden rounded-t-[32px] sm:rounded-3xl bg-apple-card text-left shadow-[0_-10px_40px_rgba(0,0,0,0.14)] sm:shadow-ios-modal w-full sm:max-w-md flex flex-col border-t sm:border border-black/[0.08]"
+                >
+                  {/* iOS Drawer Grabber Handle */}
+                  <div className="w-full pt-3 pb-1 flex justify-center sm:hidden bg-[#fbfbfd] shrink-0">
+                    <div className="w-10 h-1.5 rounded-full bg-black/20" />
+                  </div>
+
+                  <div className="p-6 text-center">
+                    <div className="h-12 w-12 rounded-full bg-rose-500/10 text-rose-600 mx-auto flex items-center justify-center mb-4">
+                      <Trash2 className="h-6 w-6 stroke-[2.2]" />
+                    </div>
+                    <h3 id="delete-router-title" className="text-base sm:text-lg font-bold text-apple-text tracking-tight mb-2">
+                      Hapus Konfigurasi Router?
+                    </h3>
+                    <p className="text-xs sm:text-sm text-apple-subtext leading-relaxed mb-3">
+                      Anda akan menghapus router <strong className="font-mono text-apple-text">{deletingRouterTarget.ip}:{deletingRouterTarget.port}</strong> ({deletingRouterTarget.user}) dari daftar FNet.
+                    </p>
+                    <p className="text-[11px] text-amber-600 bg-amber-500/10 border border-amber-500/20 rounded-xl p-2.5 mb-6 text-left">
+                      Kredensial router yang tersimpan di perangkat lokal Anda akan dihapus. Perangkat fisik MikroTik tidak akan terpengaruh.
+                    </p>
+
+                    <div className="flex items-center gap-3 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] sm:pb-0">
+                      <button
+                        type="button"
+                        onClick={() => setDeletingRouterTarget(null)}
+                        className="flex-1 min-h-[48px] rounded-2xl bg-black/[0.05] hover:bg-black/[0.08] active:scale-[0.98] text-apple-text font-semibold text-xs sm:text-sm transition-all tap-spring"
+                      >
+                        Batal
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const targetId = deletingRouterTarget.id;
+                          setDeletingRouterTarget(null);
+                          handleDeleteMikrotik(targetId);
+                        }}
+                        className="flex-1 min-h-[48px] rounded-2xl bg-rose-600 hover:bg-rose-700 active:scale-[0.98] text-white font-semibold text-xs sm:text-sm shadow-xs transition-all flex items-center justify-center gap-1.5 tap-spring"
+                      >
+                        <Trash2 className="h-4 w-4 stroke-[2.2]" />
+                        <span>Hapus Router</span>
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Mobile Style Bottom Bar */}
       <nav
@@ -7378,80 +8129,125 @@ export default function App() {
         className="fixed bottom-0 left-0 right-0 z-30 bg-white/90 backdrop-blur-xl saturate-150 border-t border-black/[0.05] shadow-[0_-4px_16px_rgba(0,0,0,0.04)] pb-[env(safe-area-inset-bottom)] shrink-0 transition-all"
       >
         <div className="max-w-lg mx-auto grid grid-cols-5 h-14 px-1 sm:px-2">
-          <button
+          <motion.button
             type="button"
+            whileTap={{ scale: 0.92 }}
+            transition={figmaSpring.quick}
             onClick={() => setActiveTab('beranda')}
             aria-label="Dashboard"
             aria-current={activeTab === 'beranda' ? 'page' : undefined}
-            className={`flex flex-col items-center justify-center min-h-[48px] py-1 my-1 rounded-xl transition-all ${
+            className={`relative flex flex-col items-center justify-center min-h-[48px] py-1 my-1 rounded-xl transition-colors select-none ${
               activeTab === 'beranda'
-                ? 'text-apple-blue font-semibold bg-apple-blue/[0.08]'
+                ? 'text-apple-blue font-semibold'
                 : 'text-apple-subtext hover:text-apple-text hover:bg-black/[0.03]'
             }`}
           >
-            <Home className="h-5 w-5" />
-            <span className="text-[10px] sm:text-[11px] mt-0.5">Dashboard</span>
-          </button>
+            {activeTab === 'beranda' && (
+              <motion.div
+                layoutId="bottomNavActivePill"
+                className="absolute inset-0 bg-apple-blue/[0.09] rounded-xl z-0"
+                transition={figmaSpring.quick}
+              />
+            )}
+            <Home className="h-5 w-5 relative z-10" />
+            <span className="text-[10px] sm:text-[11px] mt-0.5 relative z-10">Dashboard</span>
+          </motion.button>
 
-          <button
+          <motion.button
             type="button"
+            whileTap={{ scale: 0.92 }}
+            transition={figmaSpring.quick}
             onClick={() => setActiveTab('pppoe')}
             aria-label="PPPoE"
             aria-current={activeTab === 'pppoe' ? 'page' : undefined}
-            className={`flex flex-col items-center justify-center min-h-[48px] py-1 my-1 rounded-xl transition-all ${
+            className={`relative flex flex-col items-center justify-center min-h-[48px] py-1 my-1 rounded-xl transition-colors select-none ${
               activeTab === 'pppoe'
-                ? 'text-apple-blue font-semibold bg-apple-blue/[0.08]'
+                ? 'text-apple-blue font-semibold'
                 : 'text-apple-subtext hover:text-apple-text hover:bg-black/[0.03]'
             }`}
           >
-            <Users className="h-5 w-5" />
-            <span className="text-[10px] sm:text-[11px] mt-0.5">PPPoE</span>
-          </button>
+            {activeTab === 'pppoe' && (
+              <motion.div
+                layoutId="bottomNavActivePill"
+                className="absolute inset-0 bg-apple-blue/[0.09] rounded-xl z-0"
+                transition={figmaSpring.quick}
+              />
+            )}
+            <Users className="h-5 w-5 relative z-10" />
+            <span className="text-[10px] sm:text-[11px] mt-0.5 relative z-10">PPPoE</span>
+          </motion.button>
 
-          <button
+          <motion.button
             type="button"
+            whileTap={{ scale: 0.92 }}
+            transition={figmaSpring.quick}
             onClick={() => setActiveTab('hotspot')}
             aria-label="Hotspot"
             aria-current={activeTab === 'hotspot' ? 'page' : undefined}
-            className={`flex flex-col items-center justify-center min-h-[48px] py-1 my-1 rounded-xl transition-all ${
+            className={`relative flex flex-col items-center justify-center min-h-[48px] py-1 my-1 rounded-xl transition-colors select-none ${
               activeTab === 'hotspot'
-                ? 'text-apple-blue font-semibold bg-apple-blue/[0.08]'
+                ? 'text-apple-blue font-semibold'
                 : 'text-apple-subtext hover:text-apple-text hover:bg-black/[0.03]'
             }`}
           >
-            <Wifi className="h-5 w-5" />
-            <span className="text-[10px] sm:text-[11px] mt-0.5">Hotspot</span>
-          </button>
+            {activeTab === 'hotspot' && (
+              <motion.div
+                layoutId="bottomNavActivePill"
+                className="absolute inset-0 bg-apple-blue/[0.09] rounded-xl z-0"
+                transition={figmaSpring.quick}
+              />
+            )}
+            <Wifi className="h-5 w-5 relative z-10" />
+            <span className="text-[10px] sm:text-[11px] mt-0.5 relative z-10">Hotspot</span>
+          </motion.button>
 
-          <button
+          <motion.button
             type="button"
+            whileTap={{ scale: 0.92 }}
+            transition={figmaSpring.quick}
             onClick={() => setActiveTab('dhcp')}
             aria-label="DHCP Leases"
             aria-current={activeTab === 'dhcp' ? 'page' : undefined}
-            className={`flex flex-col items-center justify-center min-h-[48px] py-1 my-1 rounded-xl transition-all ${
+            className={`relative flex flex-col items-center justify-center min-h-[48px] py-1 my-1 rounded-xl transition-colors select-none ${
               activeTab === 'dhcp'
-                ? 'text-apple-blue font-semibold bg-apple-blue/[0.08]'
+                ? 'text-apple-blue font-semibold'
                 : 'text-apple-subtext hover:text-apple-text hover:bg-black/[0.03]'
             }`}
           >
-            <Network className="h-5 w-5" />
-            <span className="text-[10px] sm:text-[11px] mt-0.5">DHCP</span>
-          </button>
+            {activeTab === 'dhcp' && (
+              <motion.div
+                layoutId="bottomNavActivePill"
+                className="absolute inset-0 bg-apple-blue/[0.09] rounded-xl z-0"
+                transition={figmaSpring.quick}
+              />
+            )}
+            <Network className="h-5 w-5 relative z-10" />
+            <span className="text-[10px] sm:text-[11px] mt-0.5 relative z-10">DHCP</span>
+          </motion.button>
 
-          <button
+          <motion.button
             type="button"
+            whileTap={{ scale: 0.92 }}
+            transition={figmaSpring.quick}
             onClick={() => setActiveTab('pengaturan')}
             aria-label="Pengaturan"
             aria-current={activeTab === 'pengaturan' ? 'page' : undefined}
-            className={`flex flex-col items-center justify-center min-h-[48px] py-1 my-1 rounded-xl transition-all ${
+            className={`relative flex flex-col items-center justify-center min-h-[48px] py-1 my-1 rounded-xl transition-colors select-none ${
               activeTab === 'pengaturan'
-                ? 'text-apple-blue font-semibold bg-apple-blue/[0.08]'
+                ? 'text-apple-blue font-semibold'
                 : 'text-apple-subtext hover:text-apple-text hover:bg-black/[0.03]'
             }`}
           >
-            <Settings className="h-5 w-5" />
-            <span className="text-[10px] sm:text-[11px] mt-0.5">Pengaturan</span>
-          </button>
+            {activeTab === 'pengaturan' && (
+              <motion.div
+                layoutId="bottomNavActivePill"
+                className="absolute inset-0 bg-apple-blue/[0.09] rounded-xl z-0"
+                transition={figmaSpring.quick}
+              />
+            )}
+            <Settings className="h-5 w-5 relative z-10" />
+            <span className="text-[10px] sm:text-[11px] mt-0.5 relative z-10">Pengaturan</span>
+          </motion.button>
         </div>
       </nav>
     </div>
