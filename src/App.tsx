@@ -595,142 +595,6 @@ function LiveTrafficCard({ liveInterfaces, isLive = false }: LiveTrafficCardProp
   );
 }
 
-const initialDemoHotspotUsers: HotspotUser[] = [
-  {
-    '.id': '*H1',
-    name: 'tasyauser',
-    profile: 'Voucher-8M',
-    uptime: '4h 12m 30s',
-    'bytes-in': '105423891',
-    'bytes-out': '847291823',
-    'limit-uptime': '7d',
-    'limit-bytes-total': '0',
-    disabled: false,
-    comment: '2026-11-07 11:23:28',
-  },
-  {
-    '.id': '*H2',
-    name: 'vip-01',
-    profile: 'Voucher-10M',
-    uptime: '2d 4h 15m',
-    'bytes-in': '205423891',
-    'bytes-out': '1847291823',
-    'limit-uptime': '30d',
-    'limit-bytes-total': '0',
-    disabled: false,
-    comment: '2026-11-20 10:00:00',
-  },
-  {
-    '.id': '*H3',
-    name: 'vc-3jam-882',
-    profile: 'Voucher-3Jam',
-    uptime: '1h 12m 44s',
-    'bytes-in': '25423891',
-    'bytes-out': '147291823',
-    'limit-uptime': '3h',
-    'limit-bytes-total': '0',
-    disabled: false,
-    comment: '2026-11-02 12:22:25',
-  },
-  {
-    '.id': '*H4',
-    name: 'vc-fresh-104',
-    profile: 'Voucher-3M',
-    uptime: '0s',
-    'bytes-in': '0',
-    'bytes-out': '0',
-    'limit-uptime': '1d',
-    'limit-bytes-total': '0',
-    disabled: false,
-    comment: '',
-  },
-  {
-    '.id': '*H5',
-    name: 'tamu-lobby',
-    profile: 'Voucher-3M',
-    uptime: '2h 15m 10s',
-    'bytes-in': '5423891',
-    'bytes-out': '27291823',
-    'limit-uptime': '2h',
-    'limit-bytes-total': '0',
-    disabled: true,
-    comment: '2026-11-01 10:00:00',
-  },
-];
-
-const initialDemoHotspotActive: HotspotActive[] = [
-  {
-    '.id': '*HA1',
-    user: 'tasyauser',
-    address: '10.10.10.250',
-    'mac-address': '6C:29:95:4A:21:88',
-    uptime: '4h 12m 30s',
-    'session-time-left': '4d 20h 59m',
-    'bytes-in': '105423891',
-    'bytes-out': '847291823',
-    server: 'hotspot1',
-  },
-  {
-    '.id': '*HA2',
-    user: 'vip-01',
-    address: '10.5.50.22',
-    'mac-address': 'A4:C3:F0:11:92:40',
-    uptime: '2d 4h 15m',
-    'session-time-left': '17d 19h 45m',
-    'bytes-in': '205423891',
-    'bytes-out': '1847291823',
-    server: 'hotspot1',
-  },
-];
-
-const initialDemoHotspotProfiles: HotspotProfile[] = [
-  {
-    '.id': '*HP2',
-    name: 'Voucher-3M',
-    'rate-limit': '3M/3M',
-    'shared-users': '1',
-    'status-autorefresh': '1m',
-    validity: '1d',
-    comment: 'validity: 1d',
-  },
-  {
-    '.id': '*HP3',
-    name: 'Voucher-8M',
-    'rate-limit': '8M/8M',
-    'shared-users': '1',
-    'status-autorefresh': '1m',
-    validity: '7d',
-    comment: 'validity: 7d',
-  },
-  {
-    '.id': '*HP4',
-    name: 'Voucher-3Jam',
-    'rate-limit': '5M/5M',
-    'shared-users': '1',
-    'status-autorefresh': '1m',
-    validity: '3h',
-    comment: 'validity: 3h',
-  },
-  {
-    '.id': '*HP5',
-    name: 'Voucher-10M',
-    'rate-limit': '10M/10M',
-    'shared-users': '2',
-    'status-autorefresh': '1m',
-    validity: '30d',
-    comment: 'validity: 30d',
-  },
-  {
-    '.id': '*HP6',
-    name: 'VIP-Unlimited',
-    'rate-limit': '15M/15M',
-    'shared-users': '3',
-    'status-autorefresh': '1m',
-    validity: '30d',
-    comment: 'validity: 30d',
-  },
-];
-
 const isHiddenDefaultProfile = (name: string) => {
   const lower = (name || '').toLowerCase().trim();
   return lower === 'default' || lower === 'default-encryption';
@@ -755,9 +619,9 @@ export default function App() {
 
   // Hotspot State [ User | Active | Profile ]
   const [hotspotSubTab, setHotspotSubTab] = useState<'user' | 'active' | 'profile'>('user');
-  const [hotspotUsers, setHotspotUsers] = useState<HotspotUser[]>(initialDemoHotspotUsers);
-  const [hotspotActive, setHotspotActive] = useState<HotspotActive[]>(initialDemoHotspotActive);
-  const [hotspotProfiles, setHotspotProfiles] = useState<HotspotProfile[]>(initialDemoHotspotProfiles);
+  const [hotspotUsers, setHotspotUsers] = useState<HotspotUser[]>([]);
+  const [hotspotActive, setHotspotActive] = useState<HotspotActive[]>([]);
+  const [hotspotProfiles, setHotspotProfiles] = useState<HotspotProfile[]>([]);
   const [isHotspotRefreshing, setIsHotspotRefreshing] = useState(false);
   const isFetchingHotspotRef = useRef(false);
 
@@ -772,7 +636,7 @@ export default function App() {
   const [newHotspotUserName, setNewHotspotUserName] = useState('');
   const [newHotspotUserPass, setNewHotspotUserPass] = useState('');
   const [showNewHotspotPass, setShowNewHotspotPass] = useState(false);
-  const [newHotspotUserProfile, setNewHotspotUserProfile] = useState('Voucher-3M');
+  const [newHotspotUserProfile, setNewHotspotUserProfile] = useState('default');
   const [newHotspotUserLimitUptime, setNewHotspotUserLimitUptime] = useState('');
   const [newHotspotUserComment, setNewHotspotUserComment] = useState('');
 
@@ -780,7 +644,7 @@ export default function App() {
   const [selectedHotspotUser, setSelectedHotspotUser] = useState<HotspotUser | null>(null);
   const [editHotspotUserPass, setEditHotspotUserPass] = useState('');
   const [showEditHotspotPass, setShowEditHotspotPass] = useState(false);
-  const [editHotspotUserProfile, setEditHotspotUserProfile] = useState('Voucher-3M');
+  const [editHotspotUserProfile, setEditHotspotUserProfile] = useState('default');
   const [editHotspotUserLimitUptime, setEditHotspotUserLimitUptime] = useState('');
   const [editHotspotUserComment, setEditHotspotUserComment] = useState('');
   const [hotspotDeleteHoldId, setHotspotDeleteHoldId] = useState<string | null>(null);
@@ -2012,6 +1876,11 @@ export default function App() {
     }
 
     const routerProfile = getSelectedProfile();
+    if (!routerProfile) {
+      showToast('Pilih router MikroTik terlebih dahulu di Pengaturan.', 'error');
+      return;
+    }
+
     const newUserData: Partial<HotspotUser> = {
       name: trimmedName,
       password: newHotspotUserPass.trim() || undefined,
@@ -2020,41 +1889,18 @@ export default function App() {
       comment: newHotspotUserComment.trim() || undefined,
     };
 
-    if (routerProfile) {
-      try {
-        await mikrotikApiService.createHotspotUser(routerProfile, newUserData);
-        showToast(`User Hotspot ${trimmedName} berhasil dibuat di MikroTik!`, 'success');
-        setIsAddHotspotUserModalOpen(false);
-        setNewHotspotUserName('');
-        setNewHotspotUserPass('');
-        setNewHotspotUserProfile('default');
-        setNewHotspotUserLimitUptime('');
-        setNewHotspotUserComment('');
-        fetchHotspotData();
-      } catch (err: any) {
-        showToast(`Gagal membuat user Hotspot: ${err?.message || 'Error'}`, 'error');
-      }
-    } else {
-      const dummy: HotspotUser = {
-        '.id': `*H${Date.now()}`,
-        name: trimmedName,
-        password: newHotspotUserPass.trim() || undefined,
-        profile: newHotspotUserProfile || 'default',
-        uptime: '0s',
-        'bytes-in': '0',
-        'bytes-out': '0',
-        'limit-uptime': newHotspotUserLimitUptime.trim() || undefined,
-        comment: newHotspotUserComment.trim() || undefined,
-        disabled: false,
-      };
-      setHotspotUsers((prev) => [dummy, ...prev]);
-      showToast(`User Hotspot ${trimmedName} berhasil ditambahkan!`, 'success');
+    try {
+      await mikrotikApiService.createHotspotUser(routerProfile, newUserData);
+      showToast(`User Hotspot ${trimmedName} berhasil dibuat di MikroTik!`, 'success');
       setIsAddHotspotUserModalOpen(false);
       setNewHotspotUserName('');
       setNewHotspotUserPass('');
       setNewHotspotUserProfile('default');
       setNewHotspotUserLimitUptime('');
       setNewHotspotUserComment('');
+      fetchHotspotData();
+    } catch (err: any) {
+      showToast(`Gagal membuat user Hotspot: ${err?.message || 'Error'}`, 'error');
     }
   };
 
@@ -2072,6 +1918,11 @@ export default function App() {
     if (!selectedHotspotUser) return;
 
     const routerProfile = getSelectedProfile();
+    if (!routerProfile) {
+      showToast('Pilih router MikroTik terlebih dahulu di Pengaturan.', 'error');
+      return;
+    }
+
     const updates: Partial<HotspotUser> = {
       profile: editHotspotUserProfile || 'default',
       'limit-uptime': editHotspotUserLimitUptime.trim() || undefined,
@@ -2081,30 +1932,26 @@ export default function App() {
       updates.password = editHotspotUserPass.trim();
     }
 
-    if (routerProfile) {
-      try {
-        await mikrotikApiService.updateHotspotUser(routerProfile, selectedHotspotUser['.id'], updates);
-        showToast(`User ${selectedHotspotUser.name} berhasil diperbarui di MikroTik!`, 'success');
-        setHotspotUsers((prev) =>
-          prev.map((u) => (u['.id'] === selectedHotspotUser['.id'] ? { ...u, ...updates } : u))
-        );
-        setSelectedHotspotUser(null);
-        fetchHotspotData();
-      } catch (err: any) {
-        showToast(`Gagal update user Hotspot: ${err?.message || 'Error'}`, 'error');
-      }
-    } else {
+    try {
+      await mikrotikApiService.updateHotspotUser(routerProfile, selectedHotspotUser['.id'], updates);
+      showToast(`User ${selectedHotspotUser.name} berhasil diperbarui di MikroTik!`, 'success');
       setHotspotUsers((prev) =>
         prev.map((u) => (u['.id'] === selectedHotspotUser['.id'] ? { ...u, ...updates } : u))
       );
-      showToast(`User ${selectedHotspotUser.name} berhasil diperbarui!`, 'success');
       setSelectedHotspotUser(null);
+      fetchHotspotData();
+    } catch (err: any) {
+      showToast(`Gagal update user Hotspot: ${err?.message || 'Error'}`, 'error');
     }
   };
 
   const handleToggleDisableHotspotUser = async (user: HotspotUser) => {
     const nextDisabled = !(user.disabled === true || user.disabled === 'true');
     const routerProfile = getSelectedProfile();
+    if (!routerProfile) {
+      showToast('Pilih router MikroTik terlebih dahulu di Pengaturan.', 'error');
+      return;
+    }
 
     setHotspotUsers((prev) =>
       prev.map((u) => (u['.id'] === user['.id'] ? { ...u, disabled: nextDisabled } : u))
@@ -2113,65 +1960,55 @@ export default function App() {
       setSelectedHotspotUser((prev) => (prev ? { ...prev, disabled: nextDisabled } : null));
     }
 
-    if (routerProfile) {
-      try {
-        await mikrotikApiService.updateHotspotUser(routerProfile, user['.id'], {
-          disabled: nextDisabled ? 'true' : 'false',
-        });
-        if (nextDisabled) {
-          const activeSession = hotspotActive.find(
-            (a) => a.user.toLowerCase() === user.name.toLowerCase()
-          );
-          if (activeSession) {
-            try {
-              await mikrotikApiService.disconnectHotspotActive(routerProfile, activeSession['.id']);
-            } catch {
-              // ignore
-            }
-            setHotspotActive((prev) =>
-              prev.filter((a) => a.user.toLowerCase() !== user.name.toLowerCase())
-            );
+    try {
+      await mikrotikApiService.updateHotspotUser(routerProfile, user['.id'], {
+        disabled: nextDisabled ? 'true' : 'false',
+      });
+      if (nextDisabled) {
+        const activeSession = hotspotActive.find(
+          (a) => a.user.toLowerCase() === user.name.toLowerCase()
+        );
+        if (activeSession) {
+          try {
+            await mikrotikApiService.disconnectHotspotActive(routerProfile, activeSession['.id']);
+          } catch {
+            // ignore
           }
+          setHotspotActive((prev) =>
+            prev.filter((a) => a.user.toLowerCase() !== user.name.toLowerCase())
+          );
         }
-        showToast(
-          nextDisabled
-            ? `User ${user.name} berhasil dinonaktifkan.`
-            : `User ${user.name} berhasil diaktifkan kembali.`,
-          nextDisabled ? 'error' : 'success'
-        );
-        fetchHotspotData();
-      } catch (err: any) {
-        setHotspotUsers((prev) =>
-          prev.map((u) => (u['.id'] === user['.id'] ? { ...u, disabled: !nextDisabled } : u))
-        );
-        showToast(`Gagal update status: ${err?.message || 'Error'}`, 'error');
       }
-    } else {
       showToast(
         nextDisabled
-          ? `User ${user.name} dinonaktifkan.`
-          : `User ${user.name} diaktifkan kembali.`,
+          ? `User ${user.name} berhasil dinonaktifkan.`
+          : `User ${user.name} berhasil diaktifkan kembali.`,
         nextDisabled ? 'error' : 'success'
       );
+      fetchHotspotData();
+    } catch (err: any) {
+      setHotspotUsers((prev) =>
+        prev.map((u) => (u['.id'] === user['.id'] ? { ...u, disabled: !nextDisabled } : u))
+      );
+      showToast(`Gagal update status: ${err?.message || 'Error'}`, 'error');
     }
   };
 
   const handleDeleteHotspotUser = async (user: HotspotUser) => {
     const routerProfile = getSelectedProfile();
-    if (routerProfile) {
-      try {
-        await mikrotikApiService.deleteHotspotUser(routerProfile, user['.id']);
-        showToast(`User ${user.name} berhasil dihapus dari MikroTik.`, 'success');
-        setHotspotUsers((prev) => prev.filter((u) => u['.id'] !== user['.id']));
-        setSelectedHotspotUser(null);
-        fetchHotspotData();
-      } catch (err: any) {
-        showToast(`Gagal menghapus user: ${err?.message || 'Error'}`, 'error');
-      }
-    } else {
+    if (!routerProfile) {
+      showToast('Pilih router MikroTik terlebih dahulu di Pengaturan.', 'error');
+      return;
+    }
+
+    try {
+      await mikrotikApiService.deleteHotspotUser(routerProfile, user['.id']);
+      showToast(`User ${user.name} berhasil dihapus dari MikroTik.`, 'success');
       setHotspotUsers((prev) => prev.filter((u) => u['.id'] !== user['.id']));
       setSelectedHotspotUser(null);
-      showToast(`User ${user.name} berhasil dihapus.`, 'success');
+      fetchHotspotData();
+    } catch (err: any) {
+      showToast(`Gagal menghapus user: ${err?.message || 'Error'}`, 'error');
     }
   };
 
@@ -2209,39 +2046,32 @@ export default function App() {
 
   const handleClearHotspotActiveMac = async (session: HotspotActive) => {
     const routerProfile = getSelectedProfile();
+    if (!routerProfile) {
+      showToast('Pilih router MikroTik terlebih dahulu di Pengaturan.', 'error');
+      return;
+    }
+
     const targetUser = hotspotUsers.find(
       (u) => u.name.toLowerCase() === session.user.toLowerCase()
     );
 
     try {
-      if (routerProfile) {
-        if (targetUser && targetUser['.id']) {
-          await mikrotikApiService.clearHotspotUserMac(routerProfile, targetUser['.id']);
-        } else {
-          await mikrotikApiService.clearHotspotUserMacByName(routerProfile, session.user);
-        }
-        await mikrotikApiService.disconnectHotspotActive(routerProfile, session['.id']);
-        setHotspotActive((prev) => prev.filter((a) => a['.id'] !== session['.id']));
-        setHotspotUsers((prev) =>
-          prev.map((u) =>
-            u.name.toLowerCase() === session.user.toLowerCase()
-              ? { ...u, 'mac-address': '' }
-              : u
-          )
-        );
-        showToast(`Lock MAC ${session.user} berhasil di-clear & sesi di-reset!`, 'success');
-        fetchHotspotData();
+      if (targetUser && targetUser['.id']) {
+        await mikrotikApiService.clearHotspotUserMac(routerProfile, targetUser['.id']);
       } else {
-        setHotspotActive((prev) => prev.filter((a) => a['.id'] !== session['.id']));
-        setHotspotUsers((prev) =>
-          prev.map((u) =>
-            u.name.toLowerCase() === session.user.toLowerCase()
-              ? { ...u, 'mac-address': '' }
-              : u
-          )
-        );
-        showToast(`Lock MAC ${session.user} berhasil di-clear & sesi di-reset!`, 'success');
+        await mikrotikApiService.clearHotspotUserMacByName(routerProfile, session.user);
       }
+      await mikrotikApiService.disconnectHotspotActive(routerProfile, session['.id']);
+      setHotspotActive((prev) => prev.filter((a) => a['.id'] !== session['.id']));
+      setHotspotUsers((prev) =>
+        prev.map((u) =>
+          u.name.toLowerCase() === session.user.toLowerCase()
+            ? { ...u, 'mac-address': '' }
+            : u
+        )
+      );
+      showToast(`Lock MAC ${session.user} berhasil di-clear & sesi di-reset!`, 'success');
+      fetchHotspotData();
     } catch (err: any) {
       showToast(`Gagal clear MAC: ${err?.message || 'Error'}`, 'error');
     }
@@ -2249,14 +2079,15 @@ export default function App() {
 
   const handleClearHotspotUserMac = async (user: HotspotUser) => {
     const routerProfile = getSelectedProfile();
+    if (!routerProfile) {
+      showToast('Pilih router MikroTik terlebih dahulu di Pengaturan.', 'error');
+      return;
+    }
+
     try {
-      if (routerProfile) {
-        await mikrotikApiService.clearHotspotUserMac(routerProfile, user['.id']);
-        showToast(`Lock MAC user ${user.name} berhasil di-clear!`, 'success');
-        fetchHotspotData();
-      } else {
-        showToast(`Lock MAC user ${user.name} berhasil di-clear!`, 'success');
-      }
+      await mikrotikApiService.clearHotspotUserMac(routerProfile, user['.id']);
+      showToast(`Lock MAC user ${user.name} berhasil di-clear!`, 'success');
+      fetchHotspotData();
       setHotspotUsers((prev) =>
         prev.map((u) => (u['.id'] === user['.id'] ? { ...u, 'mac-address': '' } : u))
       );
@@ -2310,8 +2141,13 @@ export default function App() {
       return;
     }
 
-    setIsSavingHotspotProfile(true);
     const routerProfile = getSelectedProfile();
+    if (!routerProfile) {
+      showToast('Pilih router MikroTik terlebih dahulu di Pengaturan.', 'error');
+      return;
+    }
+
+    setIsSavingHotspotProfile(true);
     const trimmedValidity = hotspotProfileFormValidity.trim();
     const payload: Partial<HotspotProfile> = {
       name: trimmedName,
@@ -2325,9 +2161,7 @@ export default function App() {
 
     try {
       if (editingHotspotProfileId) {
-        if (routerProfile) {
-          await mikrotikApiService.updateHotspotProfile(routerProfile, editingHotspotProfileId, payload);
-        }
+        await mikrotikApiService.updateHotspotProfile(routerProfile, editingHotspotProfileId, payload);
         setHotspotProfiles((prev) =>
           prev.map((p) =>
             p['.id'] === editingHotspotProfileId
@@ -2337,11 +2171,8 @@ export default function App() {
         );
         showToast(`Profil Hotspot ${trimmedName} berhasil diperbarui!`, 'success');
       } else {
-        let newId = `*HP${Date.now()}`;
-        if (routerProfile) {
-          const res = await mikrotikApiService.createHotspotProfile(routerProfile, payload);
-          newId = res?.['.id'] || res?.ret || trimmedName;
-        }
+        const res = await mikrotikApiService.createHotspotProfile(routerProfile, payload);
+        const newId = res?.['.id'] || res?.ret || trimmedName;
         const newProf: HotspotProfile = {
           '.id': newId,
           name: trimmedName,
@@ -2410,10 +2241,13 @@ export default function App() {
     }
 
     const routerProfile = getSelectedProfile();
+    if (!routerProfile) {
+      showToast('Pilih router MikroTik terlebih dahulu di Pengaturan.', 'error');
+      return;
+    }
+
     try {
-      if (routerProfile) {
-        await mikrotikApiService.deleteHotspotProfile(routerProfile, editingHotspotProfileId);
-      }
+      await mikrotikApiService.deleteHotspotProfile(routerProfile, editingHotspotProfileId);
       setHotspotProfiles((prev) => prev.filter((p) => p['.id'] !== editingHotspotProfileId));
       showToast(`Profil Hotspot ${target.name} berhasil dihapus.`, 'success');
       setIsHotspotProfileModalOpen(false);
