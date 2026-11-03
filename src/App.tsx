@@ -8,6 +8,8 @@ import {
   toastBannerVariants,
 } from './lib/motion';
 import { App as CapApp } from '@capacitor/app';
+import { Capacitor, CapacitorHttp } from '@capacitor/core';
+import { isValidHost } from './lib/utils';
 import {
   Lock,
   User,
@@ -2635,20 +2637,60 @@ export default function App() {
     const rawIp = mikrotikIp.trim();
     if (!rawIp || isPinging) return;
 
+    const cleanHost = rawIp.replace(/^https?:\/\//i, '').split('/')[0].split(':')[0].trim();
+    const port = mikrotikPort.trim() || '80';
+
+    if (!isValidHost(cleanHost)) {
+      setPingStatus('failed');
+      setPingLatency(null);
+      showToast(`Format IP atau host '${cleanHost}' tidak valid.`, 'error');
+      return;
+    }
+
     setIsPinging(true);
     setPingStatus('idle');
 
-    try {
-      const cleanHost = rawIp.replace(/^https?:\/\//i, '').split('/')[0].split(':')[0].trim();
-      const port = mikrotikPort.trim() || '80';
+    // 1. Lingkungan Native Android (Capacitor)
+    if (Capacitor.isNativePlatform()) {
+      const start = performance.now();
+      try {
+        const isHttps = port === '443';
+        const probeUrl = `${isHttps ? 'https' : 'http'}://${cleanHost}:${port}/`;
+        await CapacitorHttp.request({
+          url: probeUrl,
+          method: 'GET',
+          headers: {
+            'Accept': '*/*',
+            'User-Agent': 'FNet-Ping-Probe',
+          },
+          connectTimeout: 2500,
+          readTimeout: 2500,
+        });
+        const duration = Math.max(1, Math.round(performance.now() - start));
+        setPingStatus('success');
+        setPingLatency(duration);
+        showToast(`Reply from ${cleanHost}:${port} (${duration}ms)`, 'success');
+      } catch {
+        // Target host tidak merespon / timeout / host unreachable
+        setPingStatus('failed');
+        setPingLatency(null);
+        showToast(`Host ${cleanHost} tidak merespon (RTO)`, 'error');
+      } finally {
+        setIsPinging(false);
+      }
+      return;
+    }
 
+    // 2. Lingkungan Web Browser via Vite Dev / Preview Server (/api-ping)
+    try {
       const res = await fetch(`/api-ping?host=${encodeURIComponent(cleanHost)}&port=${encodeURIComponent(port)}`, {
         signal: AbortSignal.timeout(3500),
       });
 
-      if (res.ok) {
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
         const data = await res.json();
-        if (data.reply) {
+        if (data && data.reply) {
           const lat = typeof data.timeMs === 'number' ? data.timeMs : 1;
           setPingStatus('success');
           setPingLatency(lat);
@@ -2660,28 +2702,8 @@ export default function App() {
       setPingLatency(null);
       showToast(`Request timed out (RTO) dari ${cleanHost}`, 'error');
     } catch {
-      // Fallback via /api-proxy probe
-      try {
-        const cleanHost = rawIp.replace(/^https?:\/\//i, '').split('/')[0].split(':')[0].trim();
-        const port = mikrotikPort.trim() || '80';
-        const start = performance.now();
-        const probeRes = await fetch('/api-proxy', {
-          headers: { 'x-target-url': `http://${cleanHost}:${port}/` },
-          signal: AbortSignal.timeout(3000),
-        });
-        const duration = Math.round(performance.now() - start);
-        if (probeRes.status !== 502 && probeRes.status !== 504) {
-          setPingStatus('success');
-          setPingLatency(duration);
-          showToast(`Reply from ${cleanHost} (${duration}ms)`, 'success');
-          return;
-        }
-      } catch {
-        // probe failed
-      }
       setPingStatus('failed');
       setPingLatency(null);
-      const cleanHost = rawIp.replace(/^https?:\/\//i, '').split('/')[0].split(':')[0].trim();
       showToast(`Host ${cleanHost} tidak merespon (RTO)`, 'error');
     } finally {
       setIsPinging(false);
