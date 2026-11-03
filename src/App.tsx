@@ -2974,7 +2974,7 @@ export default function App() {
             </div>
             <div className="h-6 px-2 rounded-full bg-black/[0.04] border border-black/[0.04] flex items-center gap-1 text-[10px] font-semibold text-apple-subtext">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
-              v1.0
+              v1.1
             </div>
           </div>
 
