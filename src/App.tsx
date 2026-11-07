@@ -99,8 +99,8 @@ interface MasterAuth {
 }
 
 const DEFAULT_MASTER_AUTH: MasterAuth = {
-  username: 'ihwan',
-  password: '1',
+  username: 'superadmin',
+  password: 'ihwan',
 };
 
 const getStoredMasterAuth = (): MasterAuth => {
@@ -110,8 +110,8 @@ const getStoredMasterAuth = (): MasterAuth => {
       const parsed = JSON.parse(raw);
       if (parsed && typeof parsed.username === 'string' && typeof parsed.password === 'string') {
         return {
-          username: parsed.username.trim() || 'ihwan',
-          password: parsed.password || '1',
+          username: parsed.username.trim() || 'superadmin',
+          password: parsed.password || 'ihwan',
         };
       }
     }
@@ -613,8 +613,8 @@ export default function App() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [session, setSession] = useState<AuthSession | null>(null);
-  const [masterUsername, setMasterUsername] = useState('ihwan');
-  const [masterPassword, setMasterPassword] = useState('1');
+  const [masterUsername, setMasterUsername] = useState('superadmin');
+  const [masterPassword, setMasterPassword] = useState('ihwan');
   const [showMasterPassword, setShowMasterPassword] = useState(false);
   const [activeTab, setActiveTab] = useState<'beranda' | 'pppoe' | 'hotspot' | 'dhcp' | 'pengaturan'>('beranda');
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
@@ -3380,7 +3380,7 @@ export default function App() {
                           value={masterUsername}
                           onChange={(e) => setMasterUsername(e.target.value)}
                           required
-                          placeholder="misal: ihwan"
+                          placeholder="misal: superadmin"
                           className="w-full min-h-[48px] rounded-2xl bg-apple-bg border-0 ring-1 ring-inset ring-black/[0.06] pl-4 pr-10 py-2.5 text-sm font-semibold font-mono text-apple-text placeholder:text-apple-subtext/60 focus:outline-none focus:ring-2 focus:ring-apple-blue focus:bg-white transition-all shadow-sm"
                         />
                         <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-apple-subtext pointer-events-none">
@@ -3447,7 +3447,7 @@ export default function App() {
                       Sesi Pengguna
                     </span>
                     <p className="text-sm font-semibold text-apple-text mt-0.5">
-                      Masuk sebagai <strong className="font-mono text-apple-blue font-bold">{session?.username || 'ihwan'}</strong>
+                      Masuk sebagai <strong className="font-mono text-apple-blue font-bold">{session?.username || 'superadmin'}</strong>
                     </p>
                   </div>
                   <button
