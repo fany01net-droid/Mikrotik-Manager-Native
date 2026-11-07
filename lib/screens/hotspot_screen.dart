@@ -20,7 +20,7 @@ class HotspotScreen extends StatefulWidget {
 }
 
 class HotspotScreenState extends State<HotspotScreen> {
-  int _selectedSubTab = 0; // 0: Users/Vouchers, 1: Active, 2: Profiles, 3: Generator
+  int _selectedSubTab = 0; // 0: Users/Vouchers, 1: Active, 2: Profiles
   bool _isLoading = true;
 
   List<HotspotUser> _users = [];
@@ -30,10 +30,82 @@ class HotspotScreenState extends State<HotspotScreen> {
   String _searchQuery = '';
   String _userFilter = 'all';
 
+  // Lazy Load Chunking (25 data per chunk) & Scroll Controllers
+  int _visibleVouchersCount = 25;
+  int _visibleActiveCount = 25;
+  int _visibleProfilesCount = 25;
+
+  String _activeSearchQuery = '';
+  String _profileSearchQuery = '';
+
+  final ScrollController _voucherScrollController = ScrollController();
+  final ScrollController _activeScrollController = ScrollController();
+  final ScrollController _profileScrollController = ScrollController();
+
   @override
   void initState() {
     super.initState();
+    _voucherScrollController.addListener(_onVoucherScroll);
+    _activeScrollController.addListener(_onActiveScroll);
+    _profileScrollController.addListener(_onProfileScroll);
     refreshData();
+  }
+
+  @override
+  void didUpdateWidget(covariant HotspotScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.profile.id != widget.profile.id ||
+        oldWidget.profile.host != widget.profile.host ||
+        oldWidget.profile.port != widget.profile.port) {
+      _visibleVouchersCount = 25;
+      _visibleActiveCount = 25;
+      _visibleProfilesCount = 25;
+      refreshData();
+    }
+  }
+
+  @override
+  void dispose() {
+    _voucherScrollController.removeListener(_onVoucherScroll);
+    _activeScrollController.removeListener(_onActiveScroll);
+    _profileScrollController.removeListener(_onProfileScroll);
+    _voucherScrollController.dispose();
+    _activeScrollController.dispose();
+    _profileScrollController.dispose();
+    super.dispose();
+  }
+
+  void _onVoucherScroll() {
+    if (_voucherScrollController.hasClients &&
+        _voucherScrollController.position.pixels >= _voucherScrollController.position.maxScrollExtent - 250) {
+      if (_visibleVouchersCount < _users.length) {
+        setState(() {
+          _visibleVouchersCount = (_visibleVouchersCount + 25).clamp(0, _users.length);
+        });
+      }
+    }
+  }
+
+  void _onActiveScroll() {
+    if (_activeScrollController.hasClients &&
+        _activeScrollController.position.pixels >= _activeScrollController.position.maxScrollExtent - 250) {
+      if (_visibleActiveCount < _activeSessions.length) {
+        setState(() {
+          _visibleActiveCount = (_visibleActiveCount + 25).clamp(0, _activeSessions.length);
+        });
+      }
+    }
+  }
+
+  void _onProfileScroll() {
+    if (_profileScrollController.hasClients &&
+        _profileScrollController.position.pixels >= _profileScrollController.position.maxScrollExtent - 250) {
+      if (_visibleProfilesCount < _profiles.length) {
+        setState(() {
+          _visibleProfilesCount = (_visibleProfilesCount + 25).clamp(0, _profiles.length);
+        });
+      }
+    }
   }
 
   Future<void> refreshData() async {
@@ -606,7 +678,21 @@ class HotspotScreenState extends State<HotspotScreen> {
           // Content body
           Expanded(
             child: _isLoading
-                ? Center(child: CircularProgressIndicator(color: colorScheme.primary))
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(color: colorScheme.primary),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Memuat data Hotspot...',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
                 : RefreshIndicator(
                     onRefresh: refreshData,
                     color: colorScheme.primary,
@@ -675,7 +761,10 @@ class HotspotScreenState extends State<HotspotScreen> {
       return true;
     }).toList();
 
+    final visibleItems = filtered.take(_visibleVouchersCount).toList();
+
     return ListView(
+      controller: _voucherScrollController,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       children: [
         // Official M3 SearchBar
@@ -688,7 +777,12 @@ class HotspotScreenState extends State<HotspotScreen> {
           shape: WidgetStatePropertyAll(
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
-          onChanged: (val) => setState(() => _searchQuery = val),
+          onChanged: (val) {
+            setState(() {
+              _searchQuery = val;
+              _visibleVouchersCount = 25;
+            });
+          },
         ),
         const SizedBox(height: 12),
 
@@ -713,8 +807,8 @@ class HotspotScreenState extends State<HotspotScreen> {
               child: Text('Tidak ada voucher yang cocok.', style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant)),
             ),
           )
-        else
-          ...filtered.map((user) {
+        else ...[
+          ...visibleItems.map((user) {
             final exp = HotspotUtils.calculateHotspotUserExpiry(user, _profiles);
             final isOnline = _activeSessions.any((a) => a.user == user.name);
 
@@ -827,6 +921,28 @@ class HotspotScreenState extends State<HotspotScreen> {
               ),
             );
           }),
+          if (visibleItems.length < filtered.length)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Memuat lebih banyak (${visibleItems.length} dari ${filtered.length})...',
+                      style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
         const SizedBox(height: 70),
       ],
     );
@@ -839,7 +955,12 @@ class HotspotScreenState extends State<HotspotScreen> {
       child: FilterChip(
         selected: isSelected,
         label: Text(label),
-        onSelected: (_) => setState(() => _userFilter = key),
+        onSelected: (_) {
+          setState(() {
+            _userFilter = key;
+            _visibleVouchersCount = 25;
+          });
+        },
       ),
     );
   }
@@ -849,46 +970,98 @@ class HotspotScreenState extends State<HotspotScreen> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    if (_activeSessions.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Text('Tidak ada sesi voucher aktif.', style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13)),
-        ),
-      );
-    }
+    final filtered = _activeSessions.where((a) {
+      if (_activeSearchQuery.isNotEmpty) {
+        final q = _activeSearchQuery.toLowerCase();
+        return a.user.toLowerCase().contains(q) ||
+            a.address.toLowerCase().contains(q) ||
+            a.macAddress.toLowerCase().contains(q);
+      }
+      return true;
+    }).toList();
 
-    return ListView.builder(
+    final visibleItems = filtered.take(_visibleActiveCount).toList();
+
+    return ListView(
+      controller: _activeScrollController,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      itemCount: _activeSessions.length,
-      itemBuilder: (ctx, idx) {
-        final active = _activeSessions[idx];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 10),
-          child: ListTile(
-            leading: CircleAvatar(
-              backgroundColor: FNetTheme.emerald.withValues(alpha: 0.16),
-              foregroundColor: FNetTheme.emerald,
-              radius: 20,
-              child: const Icon(Icons.wifi, size: 20),
-            ),
-            title: Text(active.user, style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800)),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 2),
-                Text('IP: ${active.address} • MAC: ${active.macAddress}', style: FNetTheme.monoStyle(fontSize: 10, color: colorScheme.onSurfaceVariant)),
-                Text('Sisa Sesi: ${active.sessionTimeLeft.isNotEmpty ? active.sessionTimeLeft : active.uptime}', style: FNetTheme.monoStyle(fontSize: 10, color: colorScheme.onSurfaceVariant)),
-              ],
-            ),
-            trailing: IconButton(
-              onPressed: () => _handleDisconnectActive(active),
-              icon: const Icon(Icons.link_off, color: FNetTheme.rose, size: 22),
-              tooltip: 'Putuskan Voucher',
-            ),
+      children: [
+        SearchBar(
+          hintText: 'Cari user / IP / MAC aktif...',
+          leading: const Icon(Icons.search),
+          elevation: const WidgetStatePropertyAll(0),
+          backgroundColor: WidgetStatePropertyAll(colorScheme.surfaceContainerLowest),
+          side: WidgetStatePropertyAll(BorderSide(color: colorScheme.outlineVariant)),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
-        );
-      },
+          onChanged: (val) {
+            setState(() {
+              _activeSearchQuery = val;
+              _visibleActiveCount = 25;
+            });
+          },
+        ),
+        const SizedBox(height: 12),
+        if (filtered.isEmpty)
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Text('Tidak ada sesi voucher aktif yang cocok.', style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13)),
+            ),
+          )
+        else ...[
+          ...visibleItems.map((active) {
+            return Card(
+              margin: const EdgeInsets.only(bottom: 10),
+              child: ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: FNetTheme.emerald.withValues(alpha: 0.16),
+                  foregroundColor: FNetTheme.emerald,
+                  radius: 20,
+                  child: const Icon(Icons.wifi, size: 20),
+                ),
+                title: Text(active.user, style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800)),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 2),
+                    Text('IP: ${active.address} • MAC: ${active.macAddress}', style: FNetTheme.monoStyle(fontSize: 10, color: colorScheme.onSurfaceVariant)),
+                    Text('Sisa Sesi: ${active.sessionTimeLeft.isNotEmpty ? active.sessionTimeLeft : active.uptime}', style: FNetTheme.monoStyle(fontSize: 10, color: colorScheme.onSurfaceVariant)),
+                  ],
+                ),
+                trailing: IconButton(
+                  onPressed: () => _handleDisconnectActive(active),
+                  icon: const Icon(Icons.link_off, color: FNetTheme.rose, size: 22),
+                  tooltip: 'Putuskan Voucher',
+                ),
+              ),
+            );
+          }),
+          if (visibleItems.length < filtered.length)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Memuat lebih banyak (${visibleItems.length} dari ${filtered.length})...',
+                      style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+        const SizedBox(height: 70),
+      ],
     );
   }
 
@@ -897,42 +1070,103 @@ class HotspotScreenState extends State<HotspotScreen> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
+    final filtered = _profiles.where((p) {
+      if (_profileSearchQuery.isNotEmpty) {
+        final q = _profileSearchQuery.toLowerCase();
+        return p.name.toLowerCase().contains(q) ||
+            p.rateLimit.toLowerCase().contains(q) ||
+            p.addressPool.toLowerCase().contains(q);
+      }
+      return true;
+    }).toList();
+
+    final visibleItems = filtered.take(_visibleProfilesCount).toList();
+
     return ListView(
+      controller: _profileScrollController,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       children: [
-        ..._profiles.map((p) {
-          final voucherCount = _users.where((u) => u.profile == p.name).length;
-          return Card(
-            margin: const EdgeInsets.only(bottom: 10),
+        SearchBar(
+          hintText: 'Cari nama paket profil...',
+          leading: const Icon(Icons.search),
+          elevation: const WidgetStatePropertyAll(0),
+          backgroundColor: WidgetStatePropertyAll(colorScheme.surfaceContainerLowest),
+          side: WidgetStatePropertyAll(BorderSide(color: colorScheme.outlineVariant)),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          onChanged: (val) {
+            setState(() {
+              _profileSearchQuery = val;
+              _visibleProfilesCount = 25;
+            });
+          },
+        ),
+        const SizedBox(height: 12),
+        if (filtered.isEmpty)
+          Center(
             child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(p.name, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
-                      Badge(
-                        label: Text('$voucherCount Voucher'),
-                        backgroundColor: colorScheme.primaryContainer,
-                        textColor: colorScheme.onPrimaryContainer,
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  if (p.rateLimit.isNotEmpty)
-                    Text('Rate Limit: ${p.rateLimit}', style: FNetTheme.monoStyle(fontSize: 13, fontWeight: FontWeight.w800, color: FNetTheme.emerald)),
-                  Text(
-                    'Shared Users: ${p.sharedUsers} • Pool: ${p.addressPool.isNotEmpty ? p.addressPool : "none"}',
-                    style: FNetTheme.monoStyle(fontSize: 10, color: colorScheme.onSurfaceVariant),
-                  ),
-                ],
+              padding: const EdgeInsets.all(32),
+              child: Text('Tidak ada paket profil yang cocok.', style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13)),
+            ),
+          )
+        else ...[
+          ...visibleItems.map((p) {
+            final voucherCount = _users.where((u) => u.profile == p.name).length;
+            return Card(
+              margin: const EdgeInsets.only(bottom: 10),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(p.name, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+                        Badge(
+                          label: Text('$voucherCount Voucher'),
+                          backgroundColor: colorScheme.primaryContainer,
+                          textColor: colorScheme.onPrimaryContainer,
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    if (p.rateLimit.isNotEmpty)
+                      Text('Rate Limit: ${p.rateLimit}', style: FNetTheme.monoStyle(fontSize: 13, fontWeight: FontWeight.w800, color: FNetTheme.emerald)),
+                    Text(
+                      'Shared Users: ${p.sharedUsers} • Pool: ${p.addressPool.isNotEmpty ? p.addressPool : "none"}',
+                      style: FNetTheme.monoStyle(fontSize: 10, color: colorScheme.onSurfaceVariant),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+          if (visibleItems.length < filtered.length)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Memuat lebih banyak (${visibleItems.length} dari ${filtered.length})...',
+                      style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                    ),
+                  ],
+                ),
               ),
             ),
-          );
-        }),
+        ],
+        const SizedBox(height: 70),
       ],
     );
   }

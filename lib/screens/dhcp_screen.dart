@@ -24,11 +24,46 @@ class DhcpScreenState extends State<DhcpScreen> {
   List<DhcpLease> _leases = [];
   String _searchQuery = '';
   String _statusFilter = 'all';
+  String _serverFilter = 'all';
+
+  // Infinite Scroll Lazy Load Chunking (25 data per chunk)
+  int _visibleLeasesCount = 25;
+  final ScrollController _leaseScrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
+    _leaseScrollController.addListener(_onScroll);
     refreshData();
+  }
+
+  @override
+  void didUpdateWidget(covariant DhcpScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.profile.id != widget.profile.id ||
+        oldWidget.profile.host != widget.profile.host ||
+        oldWidget.profile.port != widget.profile.port) {
+      _visibleLeasesCount = 25;
+      refreshData();
+    }
+  }
+
+  @override
+  void dispose() {
+    _leaseScrollController.removeListener(_onScroll);
+    _leaseScrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_leaseScrollController.hasClients &&
+        _leaseScrollController.position.pixels >= _leaseScrollController.position.maxScrollExtent - 250) {
+      if (_visibleLeasesCount < _leases.length) {
+        setState(() {
+          _visibleLeasesCount = (_visibleLeasesCount + 25).clamp(0, _leases.length);
+        });
+      }
+    }
   }
 
   Future<void> refreshData() async {
@@ -81,6 +116,41 @@ class DhcpScreenState extends State<DhcpScreen> {
     }
   }
 
+  void _confirmDeleteLease(DhcpLease lease) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error),
+        title: const Text('Hapus DHCP Lease?'),
+        content: Text('Apakah Anda yakin ingin menghapus lease untuk IP ${lease.address} (${lease.macAddress})?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              try {
+                await MikrotikApiService.instance.deleteDhcpLease(widget.profile, lease.id);
+                if (mounted) {
+                  ToastBanner.show(context, message: 'Lease ${lease.address} berhasil dihapus.', type: ToastType.success);
+                }
+                refreshData();
+              } catch (e) {
+                if (mounted) {
+                  ToastBanner.show(context, message: 'Gagal menghapus lease: $e', type: ToastType.error);
+                }
+              }
+            },
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -97,24 +167,45 @@ class DhcpScreenState extends State<DhcpScreen> {
         }
       }
       if (_statusFilter == 'bound') {
-        return l.status == 'bound';
+        if (l.status != 'bound') return false;
       } else if (_statusFilter == 'dynamic') {
-        return l.isDynamic;
+        if (!l.isDynamic) return false;
       } else if (_statusFilter == 'static') {
-        return !l.isDynamic;
+        if (l.isDynamic) return false;
       } else if (_statusFilter == 'waiting') {
-        return l.status == 'waiting';
+        if (l.status != 'waiting') return false;
+      }
+      if (_serverFilter != 'all') {
+        if (l.server != _serverFilter) return false;
       }
       return true;
     }).toList();
 
+    final visibleItems = filtered.take(_visibleLeasesCount).toList();
+    final servers = _leases.map((l) => l.server).where((s) => s.isNotEmpty).toSet().toList();
+
     return Scaffold(
       body: _isLoading
-          ? Center(child: CircularProgressIndicator(color: colorScheme.primary))
+          ? Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(color: colorScheme.primary),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Memuat data DHCP Server...',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            )
           : RefreshIndicator(
               onRefresh: refreshData,
               color: colorScheme.primary,
               child: ListView(
+                controller: _leaseScrollController,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 children: [
                   // Official M3 SearchBar
@@ -127,7 +218,12 @@ class DhcpScreenState extends State<DhcpScreen> {
                     shape: WidgetStatePropertyAll(
                       RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    onChanged: (val) => setState(() => _searchQuery = val),
+                    onChanged: (val) {
+                      setState(() {
+                        _searchQuery = val;
+                        _visibleLeasesCount = 25;
+                      });
+                    },
                   ),
                   const SizedBox(height: 12),
 
@@ -143,6 +239,43 @@ class DhcpScreenState extends State<DhcpScreen> {
                       ],
                     ),
                   ),
+
+                  if (servers.length > 1) ...[
+                    const SizedBox(height: 8),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: FilterChip(
+                              selected: _serverFilter == 'all',
+                              label: const Text('Semua Server'),
+                              onSelected: (_) {
+                                setState(() {
+                                  _serverFilter = 'all';
+                                  _visibleLeasesCount = 25;
+                                });
+                              },
+                            ),
+                          ),
+                          ...servers.map((s) => Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: FilterChip(
+                                  selected: _serverFilter == s,
+                                  label: Text('Server: $s'),
+                                  onSelected: (_) {
+                                    setState(() {
+                                      _serverFilter = s;
+                                      _visibleLeasesCount = 25;
+                                    });
+                                  },
+                                ),
+                              )),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 14),
 
                   if (filtered.isEmpty)
@@ -152,8 +285,8 @@ class DhcpScreenState extends State<DhcpScreen> {
                         child: Text('Tidak ada DHCP lease yang cocok.', style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13)),
                       ),
                     )
-                  else
-                    ...filtered.map((lease) {
+                  else ...[
+                    ...visibleItems.map((lease) {
                       final vendor = FormatUtils.detectDeviceVendor(lease.macAddress, lease.hostName);
                       final isBound = lease.status == 'bound';
 
@@ -227,17 +360,28 @@ class DhcpScreenState extends State<DhcpScreen> {
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  OutlinedButton.icon(
-                                    onPressed: () => _handleToggleStatic(lease),
-                                    style: OutlinedButton.styleFrom(
-                                      foregroundColor: lease.isDynamic ? colorScheme.primary : colorScheme.onSurfaceVariant,
-                                      minimumSize: const Size(48, 40),
-                                    ),
-                                    icon: Icon(lease.isDynamic ? Icons.push_pin_outlined : Icons.remove_circle_outline, size: 18),
-                                    label: Text(
-                                      lease.isDynamic ? 'Jadikan Static' : 'Lepas Reservasi',
-                                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-                                    ),
+                                  Row(
+                                    children: [
+                                      OutlinedButton.icon(
+                                        onPressed: () => _handleToggleStatic(lease),
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: lease.isDynamic ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                                          minimumSize: const Size(48, 40),
+                                        ),
+                                        icon: Icon(lease.isDynamic ? Icons.push_pin_outlined : Icons.remove_circle_outline, size: 18),
+                                        label: Text(
+                                          lease.isDynamic ? 'Jadikan Static' : 'Lepas Reservasi',
+                                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      IconButton(
+                                        tooltip: 'Hapus Lease',
+                                        icon: const Icon(Icons.delete_outline, size: 20),
+                                        color: colorScheme.error,
+                                        onPressed: () => _confirmDeleteLease(lease),
+                                      ),
+                                    ],
                                   ),
                                   FilledButton.tonalIcon(
                                     onPressed: () {
@@ -262,6 +406,29 @@ class DhcpScreenState extends State<DhcpScreen> {
                         ),
                       );
                     }),
+                    if (visibleItems.length < filtered.length)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        child: Center(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                'Memuat lebih banyak (${visibleItems.length} dari ${filtered.length})...',
+                                style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                  const SizedBox(height: 70),
                 ],
               ),
             ),
@@ -275,7 +442,12 @@ class DhcpScreenState extends State<DhcpScreen> {
       child: FilterChip(
         selected: isSelected,
         label: Text(label),
-        onSelected: (_) => setState(() => _statusFilter = key),
+        onSelected: (_) {
+          setState(() {
+            _statusFilter = key;
+            _visibleLeasesCount = 25;
+          });
+        },
       ),
     );
   }

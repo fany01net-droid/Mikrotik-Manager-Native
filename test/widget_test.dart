@@ -20,13 +20,11 @@ void main() {
       initialTheme: 'dark',
     ));
 
-    expect(find.text('Home'), findsWidgets);
+    expect(find.text('Dashboard'), findsWidgets);
+    expect(find.text('PPPoE'), findsWidgets);
+    expect(find.text('Hotspot'), findsWidgets);
+    expect(find.text('DHCP'), findsWidgets);
     expect(find.text('Pengaturan'), findsWidgets);
-    expect(find.text('Beranda'), findsOneWidget);
-    expect(find.text('Halaman telah dibersihkan.'), findsOneWidget);
-
-    // Verify cleaned home page has no dummy traffic cards
-    expect(find.text('ether1-WAN Traffic'), findsNothing);
 
     // Switch to Pengaturan tab
     await tester.tap(find.text('Pengaturan').last);

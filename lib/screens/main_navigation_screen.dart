@@ -1,8 +1,12 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../models/mikrotik_models.dart';
 import '../services/storage_service.dart';
 import '../services/mikrotik_api_service.dart';
 import 'beranda_screen.dart';
+import 'pppoe_screen.dart';
+import 'hotspot_screen.dart';
+import 'dhcp_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   final VoidCallback onToggleTheme;
@@ -23,9 +27,15 @@ class MainNavigationScreen extends StatefulWidget {
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _currentPageIndex = 0; // Default: Dashboard
   final GlobalKey<BerandaScreenState> _berandaKey = GlobalKey<BerandaScreenState>();
+  final GlobalKey<PppoeScreenState> _pppoeKey = GlobalKey<PppoeScreenState>();
+  final GlobalKey<HotspotScreenState> _hotspotKey = GlobalKey<HotspotScreenState>();
+  final GlobalKey<DhcpScreenState> _dhcpKey = GlobalKey<DhcpScreenState>();
 
   final List<String> _titles = const [
     'Dashboard',
+    'PPPoE',
+    'Hotspot',
+    'DHCP',
     'Pengaturan',
   ];
 
@@ -66,14 +76,34 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     }
   }
 
+  void _handleConvertToPppoe({required String name, required String ip, required String comment}) {
+    setState(() => _currentPageIndex = 1);
+    Future.delayed(const Duration(milliseconds: 150), () {
+      _pppoeKey.currentState?.openAddSecretPrefilled(name: name, ip: ip, comment: comment);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final active = _activeProfile;
 
     final List<Widget> pages = [
       BerandaScreen(
-        key: ValueKey('${active.id}_${active.host}_${active.port}'),
+        key: _berandaKey,
         profile: active,
+      ),
+      PppoeScreen(
+        key: _pppoeKey,
+        profile: active,
+      ),
+      HotspotScreen(
+        key: _hotspotKey,
+        profile: active,
+      ),
+      DhcpScreen(
+        key: _dhcpKey,
+        profile: active,
+        onConvertToPppoe: _handleConvertToPppoe,
       ),
       SettingsContentPage(
         onToggleTheme: widget.onToggleTheme,
@@ -93,14 +123,29 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
         actions: [
-          if (_currentPageIndex == 0)
-            IconButton(
-              tooltip: 'Segarkan Dashboard',
-              icon: const Icon(Icons.refresh),
-              onPressed: () {
-                _berandaKey.currentState?.refreshData();
-              },
-            ),
+          IconButton(
+            tooltip: 'Segarkan Data',
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              switch (_currentPageIndex) {
+                case 0:
+                  _berandaKey.currentState?.refreshData();
+                  break;
+                case 1:
+                  _pppoeKey.currentState?.refreshData();
+                  break;
+                case 2:
+                  _hotspotKey.currentState?.refreshData();
+                  break;
+                case 3:
+                  _dhcpKey.currentState?.refreshData();
+                  break;
+                default:
+                  _loadProfiles();
+                  break;
+              }
+            },
+          ),
           IconButton(
             tooltip: 'Ganti Tema',
             icon: Icon(
@@ -111,7 +156,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           const SizedBox(width: 8),
         ],
       ),
-      body: pages[_currentPageIndex],
+      body: IndexedStack(
+        index: _currentPageIndex,
+        children: pages,
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentPageIndex,
         onDestinationSelected: (int index) {
@@ -121,9 +169,24 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         },
         destinations: const <NavigationDestination>[
           NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard),
+            icon: Icon(Icons.speed_outlined),
+            selectedIcon: Icon(Icons.speed),
             label: 'Dashboard',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.group_outlined),
+            selectedIcon: Icon(Icons.group),
+            label: 'PPPoE',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.wifi_outlined),
+            selectedIcon: Icon(Icons.wifi),
+            label: 'Hotspot',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.lan_outlined),
+            selectedIcon: Icon(Icons.lan),
+            label: 'DHCP',
           ),
           NavigationDestination(
             icon: Icon(Icons.settings_outlined),
@@ -243,8 +306,6 @@ class SettingsContentPageState extends State<SettingsContentPage> {
     bool useHttps = isAddingNew ? false : profile.useHttps;
     bool obscurePass = true;
     bool isTesting = false;
-    String? statusMessage;
-    bool isStatusSuccess = false;
 
     showModalBottomSheet(
       context: context,
@@ -254,103 +315,78 @@ class SettingsContentPageState extends State<SettingsContentPage> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setModalState) {
-          _drawerNotify = (msg, isSuccess) {
-            setModalState(() {
-              statusMessage = msg;
-              isStatusSuccess = isSuccess;
-            });
-          };
-
-          final theme = Theme.of(ctx);
-          final colorScheme = theme.colorScheme;
-
-          return Padding(
-            padding: EdgeInsets.only(
-              left: 20,
-              right: 20,
-              top: 4,
-              bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
-            ),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
+      builder: (modalCtx) => LayoutBuilder(
+        builder: (ctx, constraints) => ScaffoldMessenger(
+          child: Scaffold(
+            backgroundColor: Colors.transparent,
+            body: StatefulBuilder(
+              builder: (innerCtx, setModalState) {
+                _drawerNotify = (msg, isSuccess) {
+                  final h = constraints.maxHeight;
+                  ScaffoldMessenger.of(innerCtx).hideCurrentSnackBar();
+                  ScaffoldMessenger.of(innerCtx).showSnackBar(
+                    SnackBar(
+                      behavior: SnackBarBehavior.floating,
+                      margin: EdgeInsets.only(
+                        bottom: math.max(16.0, h - 85),
+                        left: 16,
+                        right: 16,
+                      ),
+                      content: Row(
                         children: [
-                          const Icon(Icons.router_outlined),
-                          const SizedBox(width: 10),
-                          Text(
-                            isAddingNew ? 'Tambah Profil Router' : 'Edit Profil Router',
-                            style: theme.textTheme.titleMedium,
+                          Icon(
+                            isSuccess ? Icons.check_circle_rounded : Icons.error_outline_rounded,
+                            size: 18,
+                            color: isSuccess
+                                ? Theme.of(innerCtx).colorScheme.primary
+                                : Theme.of(innerCtx).colorScheme.error,
                           ),
+                          const SizedBox(width: 10),
+                          Expanded(child: Text(msg)),
                         ],
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.close_rounded),
-                        onPressed: () => Navigator.pop(ctx),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
+                      duration: const Duration(seconds: 3),
+                    ),
+                  );
+                };
 
-                  // NOTIFIKASI DI ATAS (ketika drawer terbuka, posisi selalu di paling atas)
-                  if (statusMessage != null) ...[
-                    Card(
-                      elevation: 0,
-                      color: isStatusSuccess
-                          ? colorScheme.primaryContainer.withValues(alpha: 0.5)
-                          : colorScheme.errorContainer.withValues(alpha: 0.6),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(
-                          color: isStatusSuccess
-                              ? colorScheme.primary.withValues(alpha: 0.3)
-                              : colorScheme.error.withValues(alpha: 0.3),
-                        ),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        child: Row(
+                final theme = Theme.of(innerCtx);
+                final colorScheme = theme.colorScheme;
+
+                return Padding(
+                  padding: EdgeInsets.only(
+                    left: 20,
+                    right: 20,
+                    top: 4,
+                    bottom: MediaQuery.of(innerCtx).viewInsets.bottom + 24,
+                  ),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Icon(
-                              isStatusSuccess ? Icons.check_circle_rounded : Icons.error_outline_rounded,
-                              size: 20,
-                              color: isStatusSuccess ? colorScheme.primary : colorScheme.error,
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                statusMessage!,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: isStatusSuccess
-                                      ? colorScheme.onPrimaryContainer
-                                      : colorScheme.onErrorContainer,
+                            Row(
+                              children: [
+                                const Icon(Icons.router_outlined),
+                                const SizedBox(width: 10),
+                                Text(
+                                  isAddingNew ? 'Tambah Profil Router' : 'Edit Profil Router',
+                                  style: theme.textTheme.titleMedium,
                                 ),
-                              ),
+                              ],
                             ),
                             IconButton(
-                              visualDensity: VisualDensity.compact,
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                              icon: const Icon(Icons.close, size: 16),
-                              onPressed: () => setModalState(() => statusMessage = null),
+                              icon: const Icon(Icons.close_rounded),
+                              onPressed: () => Navigator.pop(modalCtx),
                             ),
                           ],
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
+                        const SizedBox(height: 16),
 
-                  // Nama Router
+                        // Nama Router
                   TextFormField(
                     controller: nameCtrl,
                     decoration: InputDecoration(
@@ -470,7 +506,6 @@ class SettingsContentPageState extends State<SettingsContentPage> {
                                   }
                                   setModalState(() {
                                     isTesting = true;
-                                    statusMessage = null;
                                   });
 
                                   final testProfile = RouterProfile(
@@ -622,6 +657,9 @@ class SettingsContentPageState extends State<SettingsContentPage> {
           );
         },
       ),
+    ),
+  ),
+),
     ).whenComplete(() {
       _drawerNotify = null;
     });

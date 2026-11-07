@@ -28,10 +28,61 @@ class PppoeScreenState extends State<PppoeScreen> {
   String _searchQuery = '';
   String _secretFilter = 'all';
 
+  // Infinite Scroll Lazy Load Chunking (25 data per chunk)
+  int _visibleSecretsCount = 25;
+  int _visibleActiveCount = 25;
+  final ScrollController _secretScrollController = ScrollController();
+  final ScrollController _activeScrollController = ScrollController();
+
   @override
   void initState() {
     super.initState();
+    _secretScrollController.addListener(_onSecretScroll);
+    _activeScrollController.addListener(_onActiveScroll);
     refreshData();
+  }
+
+  @override
+  void didUpdateWidget(covariant PppoeScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.profile.id != widget.profile.id ||
+        oldWidget.profile.host != widget.profile.host ||
+        oldWidget.profile.port != widget.profile.port) {
+      _visibleSecretsCount = 25;
+      _visibleActiveCount = 25;
+      refreshData();
+    }
+  }
+
+  @override
+  void dispose() {
+    _secretScrollController.removeListener(_onSecretScroll);
+    _activeScrollController.removeListener(_onActiveScroll);
+    _secretScrollController.dispose();
+    _activeScrollController.dispose();
+    super.dispose();
+  }
+
+  void _onSecretScroll() {
+    if (_secretScrollController.hasClients &&
+        _secretScrollController.position.pixels >= _secretScrollController.position.maxScrollExtent - 250) {
+      if (_visibleSecretsCount < _secrets.length) {
+        setState(() {
+          _visibleSecretsCount = (_visibleSecretsCount + 25).clamp(0, _secrets.length);
+        });
+      }
+    }
+  }
+
+  void _onActiveScroll() {
+    if (_activeScrollController.hasClients &&
+        _activeScrollController.position.pixels >= _activeScrollController.position.maxScrollExtent - 250) {
+      if (_visibleActiveCount < _activeSessions.length) {
+        setState(() {
+          _visibleActiveCount = (_visibleActiveCount + 25).clamp(0, _activeSessions.length);
+        });
+      }
+    }
   }
 
   Future<void> refreshData() async {
@@ -445,7 +496,21 @@ class PppoeScreenState extends State<PppoeScreen> {
           // Content body
           Expanded(
             child: _isLoading
-                ? Center(child: CircularProgressIndicator(color: colorScheme.primary))
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(color: colorScheme.primary),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Memuat data PPPoE...',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
                 : RefreshIndicator(
                     onRefresh: refreshData,
                     color: colorScheme.primary,
@@ -502,7 +567,10 @@ class PppoeScreenState extends State<PppoeScreen> {
       return true;
     }).toList();
 
+    final visibleItems = filtered.take(_visibleSecretsCount).toList();
+
     return ListView(
+      controller: _secretScrollController,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       children: [
         // Official M3 SearchBar
@@ -515,7 +583,12 @@ class PppoeScreenState extends State<PppoeScreen> {
           shape: WidgetStatePropertyAll(
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
-          onChanged: (val) => setState(() => _searchQuery = val),
+          onChanged: (val) {
+            setState(() {
+              _searchQuery = val;
+              _visibleSecretsCount = 25;
+            });
+          },
         ),
         const SizedBox(height: 12),
 
@@ -544,8 +617,8 @@ class PppoeScreenState extends State<PppoeScreen> {
               ),
             ),
           )
-        else
-          ...filtered.map((secret) {
+        else ...[
+          ...visibleItems.map((secret) {
             final parsed = PppoeUtils.parseExpiryFromComment(secret.comment);
             final isOnline = _activeSessions.any((a) => a.name == secret.name);
 
@@ -687,6 +760,28 @@ class PppoeScreenState extends State<PppoeScreen> {
               ),
             );
           }),
+          if (visibleItems.length < filtered.length)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Memuat lebih banyak (${visibleItems.length} dari ${filtered.length})...',
+                      style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
         const SizedBox(height: 70),
       ],
     );
@@ -699,7 +794,12 @@ class PppoeScreenState extends State<PppoeScreen> {
       child: FilterChip(
         selected: isSelected,
         label: Text(label),
-        onSelected: (_) => setState(() => _secretFilter = key),
+        onSelected: (_) {
+          setState(() {
+            _secretFilter = key;
+            _visibleSecretsCount = 25;
+          });
+        },
       ),
     );
   }
@@ -718,11 +818,37 @@ class PppoeScreenState extends State<PppoeScreen> {
       );
     }
 
+    final visibleActive = _activeSessions.take(_visibleActiveCount).toList();
+
     return ListView.builder(
+      controller: _activeScrollController,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      itemCount: _activeSessions.length,
+      itemCount: visibleActive.length + (visibleActive.length < _activeSessions.length ? 1 : 0),
       itemBuilder: (ctx, idx) {
-        final active = _activeSessions[idx];
+        if (idx == visibleActive.length) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Center(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Memuat lebih banyak (${visibleActive.length} dari ${_activeSessions.length})...',
+                    style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        final active = visibleActive[idx];
         return Card(
           margin: const EdgeInsets.only(bottom: 10),
           child: ListTile(

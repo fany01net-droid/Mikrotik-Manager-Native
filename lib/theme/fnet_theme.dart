@@ -21,16 +21,26 @@ class FNetTheme {
 
   /// Official Standard Material 3 Light Theme
   static ThemeData lightTheme() {
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: seedColor,
+      brightness: Brightness.light,
+    );
     return ThemeData(
       useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: seedColor,
-        brightness: Brightness.light,
-      ),
+      colorScheme: colorScheme,
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
+        backgroundColor: colorScheme.surfaceContainerHighest,
+        contentTextStyle: TextStyle(
+          color: colorScheme.onSurface,
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+        ),
+        closeIconColor: colorScheme.onSurfaceVariant,
+        actionTextColor: colorScheme.primary,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: colorScheme.outlineVariant),
         ),
       ),
       inputDecorationTheme: const InputDecorationTheme(
@@ -42,16 +52,26 @@ class FNetTheme {
 
   /// Official Standard Material 3 Dark Theme
   static ThemeData darkTheme() {
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: seedColor,
+      brightness: Brightness.dark,
+    );
     return ThemeData(
       useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: seedColor,
-        brightness: Brightness.dark,
-      ),
+      colorScheme: colorScheme,
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
+        backgroundColor: colorScheme.surfaceContainerHighest,
+        contentTextStyle: TextStyle(
+          color: colorScheme.onSurface,
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+        ),
+        closeIconColor: colorScheme.onSurfaceVariant,
+        actionTextColor: colorScheme.primary,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: colorScheme.outlineVariant),
         ),
       ),
       inputDecorationTheme: const InputDecorationTheme(
