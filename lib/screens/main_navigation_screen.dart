@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/mikrotik_models.dart';
 import '../services/storage_service.dart';
 import '../services/mikrotik_api_service.dart';
+import 'beranda_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   final VoidCallback onToggleTheme;
@@ -20,10 +21,11 @@ class MainNavigationScreen extends StatefulWidget {
 }
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
-  int _currentPageIndex = 0; // Default: Home
+  int _currentPageIndex = 0; // Default: Dashboard
+  final GlobalKey<BerandaScreenState> _berandaKey = GlobalKey<BerandaScreenState>();
 
   final List<String> _titles = const [
-    'Home',
+    'Dashboard',
     'Pengaturan',
   ];
 
@@ -59,6 +61,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     if (mounted) {
       setState(() {
         _activeProfileId = id;
+        _currentPageIndex = 0; // Otomatis berpindah ke Dashboard untuk memuat data router yang dipilih
       });
     }
   }
@@ -68,7 +71,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     final active = _activeProfile;
 
     final List<Widget> pages = [
-      HomeContentPage(profile: active),
+      BerandaScreen(
+        key: ValueKey('${active.id}_${active.host}_${active.port}'),
+        profile: active,
+      ),
       SettingsContentPage(
         onToggleTheme: widget.onToggleTheme,
         isDark: widget.isDark,
@@ -87,6 +93,14 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
         actions: [
+          if (_currentPageIndex == 0)
+            IconButton(
+              tooltip: 'Segarkan Dashboard',
+              icon: const Icon(Icons.refresh),
+              onPressed: () {
+                _berandaKey.currentState?.refreshData();
+              },
+            ),
           IconButton(
             tooltip: 'Ganti Tema',
             icon: Icon(
@@ -107,9 +121,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         },
         destinations: const <NavigationDestination>[
           NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Home',
+            icon: Icon(Icons.dashboard_outlined),
+            selectedIcon: Icon(Icons.dashboard),
+            label: 'Dashboard',
           ),
           NavigationDestination(
             icon: Icon(Icons.settings_outlined),
@@ -117,61 +131,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             label: 'Pengaturan',
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// ==========================================
-/// 1. HALAMAN HOME (BERANDA BERSIH)
-/// 100% PURE MATERIAL 3 WIDGETS
-/// ==========================================
-class HomeContentPage extends StatelessWidget {
-  final RouterProfile? profile;
-
-  const HomeContentPage({super.key, this.profile});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerHighest,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.dashboard_outlined,
-                size: 36,
-                color: colorScheme.primary,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Beranda',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Halaman telah dibersihkan.',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -208,18 +167,28 @@ class SettingsContentPage extends StatefulWidget {
 class SettingsContentPageState extends State<SettingsContentPage> {
   bool _autoReconnect = true;
   bool _alertCpu = true;
+  void Function(String msg, bool isSuccess)? _drawerNotify;
 
-  void _showSnack(String msg) {
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        duration: const Duration(seconds: 3),
-      ),
-    );
+  void _showNotification(String msg, {bool isSuccess = true}) {
+    if (_drawerNotify != null) {
+      // 1. KASUS: Drawer sedang terbuka -> Tampilkan notifikasi DI ATAS (di dalam drawer bagian atas)
+      _drawerNotify!(msg, isSuccess);
+    } else {
+      // 2. KASUS: Tidak ada drawer terbuka -> Tampilkan notifikasi DI BAWAH (Floating SnackBar M3)
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(msg),
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
   }
+
+  void _showSnack(String msg, {bool isSuccess = true}) => _showNotification(msg, isSuccess: isSuccess);
 
   void _confirmSignOut() {
     showDialog(
@@ -238,7 +207,7 @@ class SettingsContentPageState extends State<SettingsContentPage> {
             ),
             onPressed: () {
               Navigator.pop(ctx);
-              _showSnack('Berhasil keluar dari akun.');
+              _showNotification('Berhasil keluar dari akun.');
               widget.onLogout?.call();
             },
             child: const Text('Keluar'),
@@ -287,6 +256,13 @@ class SettingsContentPageState extends State<SettingsContentPage> {
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setModalState) {
+          _drawerNotify = (msg, isSuccess) {
+            setModalState(() {
+              statusMessage = msg;
+              isStatusSuccess = isSuccess;
+            });
+          };
+
           final theme = Theme.of(ctx);
           final colorScheme = theme.colorScheme;
 
@@ -307,13 +283,11 @@ class SettingsContentPageState extends State<SettingsContentPage> {
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.router_rounded, color: colorScheme.primary),
+                          const Icon(Icons.router_outlined),
                           const SizedBox(width: 10),
                           Text(
                             isAddingNew ? 'Tambah Profil Router' : 'Edit Profil Router',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                            style: theme.textTheme.titleMedium,
                           ),
                         ],
                       ),
@@ -324,6 +298,57 @@ class SettingsContentPageState extends State<SettingsContentPage> {
                     ],
                   ),
                   const SizedBox(height: 16),
+
+                  // NOTIFIKASI DI ATAS (ketika drawer terbuka, posisi selalu di paling atas)
+                  if (statusMessage != null) ...[
+                    Card(
+                      elevation: 0,
+                      color: isStatusSuccess
+                          ? colorScheme.primaryContainer.withValues(alpha: 0.5)
+                          : colorScheme.errorContainer.withValues(alpha: 0.6),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(
+                          color: isStatusSuccess
+                              ? colorScheme.primary.withValues(alpha: 0.3)
+                              : colorScheme.error.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        child: Row(
+                          children: [
+                            Icon(
+                              isStatusSuccess ? Icons.check_circle_rounded : Icons.error_outline_rounded,
+                              size: 20,
+                              color: isStatusSuccess ? colorScheme.primary : colorScheme.error,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                statusMessage!,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: isStatusSuccess
+                                      ? colorScheme.onPrimaryContainer
+                                      : colorScheme.onErrorContainer,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              icon: const Icon(Icons.close, size: 16),
+                              onPressed: () => setModalState(() => statusMessage = null),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
 
                   // Nama Router
                   TextFormField(
@@ -424,58 +449,7 @@ class SettingsContentPageState extends State<SettingsContentPage> {
                       fillColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
                     ),
                   ),
-                  const SizedBox(height: 16),
-
-                  // Feedback Status Card di dalam Modal Drawer (Tidak ketutupan)
-                  if (statusMessage != null) ...[
-                    Card(
-                      elevation: 0,
-                      color: isStatusSuccess
-                          ? colorScheme.primaryContainer.withValues(alpha: 0.5)
-                          : colorScheme.errorContainer.withValues(alpha: 0.6),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(
-                          color: isStatusSuccess
-                              ? colorScheme.primary.withValues(alpha: 0.3)
-                              : colorScheme.error.withValues(alpha: 0.3),
-                        ),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        child: Row(
-                          children: [
-                            Icon(
-                              isStatusSuccess ? Icons.check_circle_rounded : Icons.error_outline_rounded,
-                              size: 20,
-                              color: isStatusSuccess ? colorScheme.primary : colorScheme.error,
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                statusMessage!,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: isStatusSuccess
-                                      ? colorScheme.onPrimaryContainer
-                                      : colorScheme.onErrorContainer,
-                                ),
-                              ),
-                            ),
-                            IconButton(
-                              visualDensity: VisualDensity.compact,
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                              icon: const Icon(Icons.close, size: 16),
-                              onPressed: () => setModalState(() => statusMessage = null),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
+                  const SizedBox(height: 20),
 
                   // Tombol Aksi 1 Baris: Tes Koneksi & Simpan
                   Row(
@@ -491,10 +465,7 @@ class SettingsContentPageState extends State<SettingsContentPage> {
                               : () async {
                                   final host = hostCtrl.text.trim();
                                   if (host.isEmpty) {
-                                    setModalState(() {
-                                      statusMessage = 'Host/IP router tidak boleh kosong.';
-                                      isStatusSuccess = false;
-                                    });
+                                    _showNotification('Host/IP router tidak boleh kosong.', isSuccess: false);
                                     return;
                                   }
                                   setModalState(() {
@@ -517,14 +488,12 @@ class SettingsContentPageState extends State<SettingsContentPage> {
 
                                   setModalState(() {
                                     isTesting = false;
-                                    if (res.success) {
-                                      statusMessage = 'Terhubung ke router! Latensi: ${res.durationMs}ms';
-                                      isStatusSuccess = true;
-                                    } else {
-                                      statusMessage = 'Koneksi gagal: ${res.error ?? "Tidak ada respon"}';
-                                      isStatusSuccess = false;
-                                    }
                                   });
+                                  if (res.success) {
+                                    _showNotification('Terhubung ke router! Latensi: ${res.durationMs}ms', isSuccess: true);
+                                  } else {
+                                    _showNotification('Koneksi gagal: ${res.error ?? "Tidak ada respon"}', isSuccess: false);
+                                  }
                                 },
                           icon: isTesting
                               ? SizedBox(
@@ -554,10 +523,7 @@ class SettingsContentPageState extends State<SettingsContentPage> {
                             final pass = passCtrl.text;
 
                             if (name.isEmpty || host.isEmpty || user.isEmpty) {
-                              setModalState(() {
-                                statusMessage = 'Nama, Host/IP, dan Username wajib diisi.';
-                                isStatusSuccess = false;
-                              });
+                              _showNotification('Nama, Host/IP, dan Username wajib diisi.', isSuccess: false);
                               return;
                             }
 
@@ -576,7 +542,7 @@ class SettingsContentPageState extends State<SettingsContentPage> {
                               await StorageService.saveProfile(newProfile);
                               widget.onSwitchProfile?.call(newId);
                               widget.onProfilesUpdated?.call();
-                              _showSnack('Router "$name" berhasil ditambahkan dan diaktifkan.');
+                              _showNotification('Router "$name" berhasil ditambahkan dan diaktifkan.');
                             } else {
                               final updatedProfile = RouterProfile(
                                 id: profile.id,
@@ -590,7 +556,7 @@ class SettingsContentPageState extends State<SettingsContentPage> {
                               Navigator.pop(ctx);
                               await StorageService.saveProfile(updatedProfile);
                               widget.onProfilesUpdated?.call();
-                              _showSnack('Profil router "$name" berhasil disimpan.');
+                              _showNotification('Profil router "$name" berhasil disimpan.');
                             }
                           },
                           icon: const Icon(Icons.save_rounded, size: 18),
@@ -640,7 +606,7 @@ class SettingsContentPageState extends State<SettingsContentPage> {
                                     }
                                   }
                                   widget.onProfilesUpdated?.call();
-                                  _showSnack('Profil router "${profile.name}" telah dihapus.');
+                                  _showNotification('Profil router "${profile.name}" telah dihapus.');
                                 },
                                 child: const Text('Hapus'),
                               ),
@@ -656,7 +622,9 @@ class SettingsContentPageState extends State<SettingsContentPage> {
           );
         },
       ),
-    );
+    ).whenComplete(() {
+      _drawerNotify = null;
+    });
   }
 
   @override
@@ -696,34 +664,20 @@ class SettingsContentPageState extends State<SettingsContentPage> {
                     final p = profilesList[i];
                     final isActive = p.id == (active?.id ?? '');
                     return ListTile(
-                      leading: Icon(
-                        Icons.router_outlined,
-                        color: isActive ? colorScheme.primary : colorScheme.onSurfaceVariant,
-                      ),
+                      leading: const Icon(Icons.router_outlined),
                       title: Text(
                         p.name,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                          color: isActive ? colorScheme.primary : colorScheme.onSurface,
-                        ),
                         overflow: TextOverflow.ellipsis,
                       ),
-                      subtitle: Text(
-                        p.host,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
+                      subtitle: Text(p.host),
                       trailing: Switch(
                         value: isActive,
                         onChanged: (val) {
                           if (val && !isActive) {
                             widget.onSwitchProfile?.call(p.id);
-                            _showSnack('Router "${p.name}" diaktifkan.');
+                            _showNotification('Router "${p.name}" diaktifkan.');
                           } else if (!val && isActive) {
-                            _showSnack('Router ini sedang aktif.');
+                            _showNotification('Router ini sedang aktif.');
                           }
                         },
                       ),
@@ -799,7 +753,7 @@ class SettingsContentPageState extends State<SettingsContentPage> {
                 leading: const Icon(Icons.cleaning_services_outlined),
                 title: const Text('Bersihkan Cache Lokal'),
                 subtitle: const Text('Hapus session log dan temporary stats'),
-                onTap: () => _showSnack('Cache 12.4 MB berhasil dibersihkan!'),
+                onTap: () => _showNotification('Cache 12.4 MB berhasil dibersihkan!'),
               ),
             ],
           ),

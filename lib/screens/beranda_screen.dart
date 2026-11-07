@@ -26,6 +26,7 @@ class BerandaScreenState extends State<BerandaScreen> {
   List<SystemHealth> _health = [];
   List<NetworkInterface> _interfaces = [];
   bool _isLoading = true;
+  String? _errorMessage;
 
   String _selectedInterfaceName = '';
   List<TrafficPoint> _trafficPoints = List.generate(28, (_) => const TrafficPoint(rx: 0, tx: 0));
@@ -43,13 +44,28 @@ class BerandaScreenState extends State<BerandaScreen> {
   }
 
   @override
+  void didUpdateWidget(covariant BerandaScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.profile.id != widget.profile.id ||
+        oldWidget.profile.host != widget.profile.host ||
+        oldWidget.profile.port != widget.profile.port) {
+      _prevTraffic.clear();
+      _interfaceTrafficHistory.clear();
+      refreshData();
+    }
+  }
+
+  @override
   void dispose() {
     _pollingTimer?.cancel();
     super.dispose();
   }
 
   Future<void> refreshData() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
     try {
       final resFuture = MikrotikApiService.instance.getSystemResource(widget.profile);
       final idFuture = MikrotikApiService.instance.getSystemIdentity(widget.profile);
@@ -65,6 +81,7 @@ class BerandaScreenState extends State<BerandaScreen> {
           _health = results[2] as List<SystemHealth>;
           _interfaces = results[3] as List<NetworkInterface>;
           _isLoading = false;
+          _errorMessage = null;
 
           if (_interfaces.isNotEmpty && (_selectedInterfaceName.isEmpty || !_interfaces.any((i) => i.name == _selectedInterfaceName))) {
             _selectedInterfaceName = _interfaces.first.name;
@@ -77,9 +94,12 @@ class BerandaScreenState extends State<BerandaScreen> {
           }
         });
       }
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _isLoading = false;
+          _errorMessage = e.toString().replaceFirst('Exception: ', '');
+        });
       }
     }
   }
@@ -188,7 +208,66 @@ class BerandaScreenState extends State<BerandaScreen> {
 
     if (_isLoading) {
       return Center(
-        child: CircularProgressIndicator(color: colorScheme.primary),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(color: colorScheme.primary),
+            const SizedBox(height: 16),
+            Text(
+              'Memuat data ${widget.profile.name}...',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_errorMessage != null && _resource.boardName.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: colorScheme.errorContainer.withValues(alpha: 0.4),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.cloud_off_rounded,
+                  size: 32,
+                  color: colorScheme.error,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Gagal Menghubungi Router',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _errorMessage!,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 20),
+              FilledButton.tonalIcon(
+                onPressed: refreshData,
+                icon: const Icon(Icons.refresh_rounded, size: 18),
+                label: const Text('Coba Lagi'),
+              ),
+            ],
+          ),
+        ),
       );
     }
 
