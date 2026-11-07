@@ -274,6 +274,8 @@ class SettingsContentPageState extends State<SettingsContentPage> {
     bool useHttps = isAddingNew ? false : profile.useHttps;
     bool obscurePass = true;
     bool isTesting = false;
+    String? statusMessage;
+    bool isStatusSuccess = false;
 
     showModalBottomSheet(
       context: context,
@@ -422,7 +424,58 @@ class SettingsContentPageState extends State<SettingsContentPage> {
                       fillColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
+
+                  // Feedback Status Card di dalam Modal Drawer (Tidak ketutupan)
+                  if (statusMessage != null) ...[
+                    Card(
+                      elevation: 0,
+                      color: isStatusSuccess
+                          ? colorScheme.primaryContainer.withValues(alpha: 0.5)
+                          : colorScheme.errorContainer.withValues(alpha: 0.6),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(
+                          color: isStatusSuccess
+                              ? colorScheme.primary.withValues(alpha: 0.3)
+                              : colorScheme.error.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        child: Row(
+                          children: [
+                            Icon(
+                              isStatusSuccess ? Icons.check_circle_rounded : Icons.error_outline_rounded,
+                              size: 20,
+                              color: isStatusSuccess ? colorScheme.primary : colorScheme.error,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                statusMessage!,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: isStatusSuccess
+                                      ? colorScheme.onPrimaryContainer
+                                      : colorScheme.onErrorContainer,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              icon: const Icon(Icons.close, size: 16),
+                              onPressed: () => setModalState(() => statusMessage = null),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
 
                   // Tombol Aksi 1 Baris: Tes Koneksi & Simpan
                   Row(
@@ -438,10 +491,16 @@ class SettingsContentPageState extends State<SettingsContentPage> {
                               : () async {
                                   final host = hostCtrl.text.trim();
                                   if (host.isEmpty) {
-                                    _showSnack('Host/IP router tidak boleh kosong.');
+                                    setModalState(() {
+                                      statusMessage = 'Host/IP router tidak boleh kosong.';
+                                      isStatusSuccess = false;
+                                    });
                                     return;
                                   }
-                                  setModalState(() => isTesting = true);
+                                  setModalState(() {
+                                    isTesting = true;
+                                    statusMessage = null;
+                                  });
 
                                   final testProfile = RouterProfile(
                                     id: 'temp-test',
@@ -456,12 +515,16 @@ class SettingsContentPageState extends State<SettingsContentPage> {
 
                                   final res = await MikrotikApiService.instance.testConnection(testProfile);
 
-                                  setModalState(() => isTesting = false);
-                                  if (res.success) {
-                                    _showSnack('Terhubung ke router! Latensi: ${res.durationMs}ms');
-                                  } else {
-                                    _showSnack('Koneksi gagal: ${res.error ?? "Tidak ada respon"}');
-                                  }
+                                  setModalState(() {
+                                    isTesting = false;
+                                    if (res.success) {
+                                      statusMessage = 'Terhubung ke router! Latensi: ${res.durationMs}ms';
+                                      isStatusSuccess = true;
+                                    } else {
+                                      statusMessage = 'Koneksi gagal: ${res.error ?? "Tidak ada respon"}';
+                                      isStatusSuccess = false;
+                                    }
+                                  });
                                 },
                           icon: isTesting
                               ? SizedBox(
@@ -491,7 +554,10 @@ class SettingsContentPageState extends State<SettingsContentPage> {
                             final pass = passCtrl.text;
 
                             if (name.isEmpty || host.isEmpty || user.isEmpty) {
-                              _showSnack('Nama, Host/IP, dan Username wajib diisi.');
+                              setModalState(() {
+                                statusMessage = 'Nama, Host/IP, dan Username wajib diisi.';
+                                isStatusSuccess = false;
+                              });
                               return;
                             }
 
