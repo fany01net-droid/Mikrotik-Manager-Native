@@ -103,12 +103,9 @@ class _LoginScreenState extends State<LoginScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
             content: Row(
               children: [
-                const Icon(Icons.check_circle, color: Colors.greenAccent),
+                Icon(Icons.check_circle, color: Theme.of(context).colorScheme.primary),
                 const SizedBox(width: 8),
                 const Text('Sign In berhasil'),
               ],
@@ -127,15 +124,12 @@ class _LoginScreenState extends State<LoginScreen> {
           SnackBar(
             behavior: SnackBarBehavior.floating,
             backgroundColor: Theme.of(context).colorScheme.error,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            content: const Row(
+            content: Row(
               children: [
-                Icon(Icons.error_outline, color: Colors.white),
-                SizedBox(width: 8),
+                Icon(Icons.error_outline, color: Theme.of(context).colorScheme.onError),
+                const SizedBox(width: 8),
                 Expanded(
-                  child: Text('Username atau Password salah.'),
+                  child: Text('Username atau Password salah.', style: TextStyle(color: Theme.of(context).colorScheme.onError)),
                 ),
               ],
             ),

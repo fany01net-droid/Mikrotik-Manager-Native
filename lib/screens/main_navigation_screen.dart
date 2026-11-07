@@ -76,45 +76,63 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     }
   }
 
+  Map<String, String>? _prefilledPppoeData;
+
   void _handleConvertToPppoe({required String name, required String ip, required String comment}) {
-    setState(() => _currentPageIndex = 1);
-    Future.delayed(const Duration(milliseconds: 150), () {
-      _pppoeKey.currentState?.openAddSecretPrefilled(name: name, ip: ip, comment: comment);
+    setState(() {
+      _prefilledPppoeData = {
+        'name': name,
+        'ip': ip,
+        'comment': comment,
+      };
+      _currentPageIndex = 1;
     });
+  }
+
+  Widget _buildActivePage(int index, RouterProfile active) {
+    switch (index) {
+      case 0:
+        return BerandaScreen(
+          key: _berandaKey,
+          profile: active,
+        );
+      case 1:
+        final prefill = _prefilledPppoeData;
+        _prefilledPppoeData = null;
+        return PppoeScreen(
+          key: _pppoeKey,
+          profile: active,
+          initialSecretData: prefill,
+        );
+      case 2:
+        return HotspotScreen(
+          key: _hotspotKey,
+          profile: active,
+        );
+      case 3:
+        return DhcpScreen(
+          key: _dhcpKey,
+          profile: active,
+          onConvertToPppoe: _handleConvertToPppoe,
+        );
+      case 4:
+        return SettingsContentPage(
+          onToggleTheme: widget.onToggleTheme,
+          isDark: widget.isDark,
+          activeProfile: active,
+          profiles: _profiles,
+          onSwitchProfile: _handleSwitchProfile,
+          onProfilesUpdated: _loadProfiles,
+          onLogout: widget.onLogout,
+        );
+      default:
+        return const SizedBox.shrink();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final active = _activeProfile;
-
-    final List<Widget> pages = [
-      BerandaScreen(
-        key: _berandaKey,
-        profile: active,
-      ),
-      PppoeScreen(
-        key: _pppoeKey,
-        profile: active,
-      ),
-      HotspotScreen(
-        key: _hotspotKey,
-        profile: active,
-      ),
-      DhcpScreen(
-        key: _dhcpKey,
-        profile: active,
-        onConvertToPppoe: _handleConvertToPppoe,
-      ),
-      SettingsContentPage(
-        onToggleTheme: widget.onToggleTheme,
-        isDark: widget.isDark,
-        activeProfile: active,
-        profiles: _profiles,
-        onSwitchProfile: _handleSwitchProfile,
-        onProfilesUpdated: _loadProfiles,
-        onLogout: widget.onLogout,
-      ),
-    ];
 
     return Scaffold(
       appBar: AppBar(
@@ -156,10 +174,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           const SizedBox(width: 8),
         ],
       ),
-      body: IndexedStack(
-        index: _currentPageIndex,
-        children: pages,
-      ),
+      body: _buildActivePage(_currentPageIndex, active),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentPageIndex,
         onDestinationSelected: (int index) {
@@ -243,8 +258,6 @@ class SettingsContentPageState extends State<SettingsContentPage> {
         SnackBar(
           content: Text(msg),
           behavior: SnackBarBehavior.floating,
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           duration: const Duration(seconds: 3),
         ),
       );
@@ -312,6 +325,9 @@ class SettingsContentPageState extends State<SettingsContentPage> {
       isScrollControlled: true,
       showDragHandle: true,
       useSafeArea: true,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.85,
+      ),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),

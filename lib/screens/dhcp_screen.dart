@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../models/mikrotik_models.dart';
 import '../services/mikrotik_api_service.dart';
 import '../theme/fnet_theme.dart';
@@ -304,7 +305,7 @@ class DhcpScreenState extends State<DhcpScreen> {
                                     children: [
                                       Badge(
                                         smallSize: 10,
-                                        backgroundColor: isBound ? FNetTheme.emerald : Colors.grey,
+                                        backgroundColor: isBound ? colorScheme.primary : colorScheme.outline,
                                       ),
                                       const SizedBox(width: 10),
                                       Text(
@@ -323,9 +324,30 @@ class DhcpScreenState extends State<DhcpScreen> {
                               ),
                               const SizedBox(height: 8),
 
-                              Text(
-                                'IP: ${lease.address} • MAC: ${lease.macAddress}',
-                                style: FNetTheme.monoStyle(fontSize: 12, color: colorScheme.onSurface, fontWeight: FontWeight.w700),
+                              InkWell(
+                                borderRadius: BorderRadius.circular(8),
+                                onTap: () {
+                                  Clipboard.setData(ClipboardData(text: lease.address));
+                                  ToastBanner.show(context, message: 'Alamat IP ${lease.address} berhasil disalin.', type: ToastType.info);
+                                },
+                                onLongPress: () {
+                                  Clipboard.setData(ClipboardData(text: lease.macAddress));
+                                  ToastBanner.show(context, message: 'MAC Address ${lease.macAddress} berhasil disalin.', type: ToastType.info);
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 2),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          'IP: ${lease.address} • MAC: ${lease.macAddress}',
+                                          style: FNetTheme.monoStyle(fontSize: 12, color: colorScheme.onSurface, fontWeight: FontWeight.w700),
+                                        ),
+                                      ),
+                                      Icon(Icons.copy_rounded, size: 14, color: colorScheme.onSurfaceVariant),
+                                    ],
+                                  ),
+                                ),
                               ),
                               const SizedBox(height: 6),
 

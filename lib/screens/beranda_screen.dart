@@ -322,8 +322,8 @@ class BerandaScreenState extends State<BerandaScreen> {
                         _resource.version.isNotEmpty ? 'v${_resource.version}' : 'RouterOS',
                         style: const TextStyle(fontWeight: FontWeight.w800),
                       ),
-                      backgroundColor: FNetTheme.emerald.withValues(alpha: 0.18),
-                      textColor: FNetTheme.emerald,
+                      backgroundColor: colorScheme.primaryContainer,
+                      textColor: colorScheme.onPrimaryContainer,
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     ),
                   ),
@@ -439,7 +439,7 @@ class BerandaScreenState extends State<BerandaScreen> {
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.thermostat_outlined, size: 18, color: FNetTheme.amber),
+                            Icon(Icons.thermostat_outlined, size: 18, color: colorScheme.tertiary),
                             const SizedBox(width: 8),
                             Text(
                               'Suhu & Voltase',
@@ -459,7 +459,7 @@ class BerandaScreenState extends State<BerandaScreen> {
                                   style: FNetTheme.monoStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w800,
-                                    color: (temperature ?? 0) >= 70 ? colorScheme.error : FNetTheme.emerald,
+                                    color: (temperature ?? 0) >= 70 ? colorScheme.error : colorScheme.primary,
                                   ),
                                 ),
                                 Text(
@@ -473,7 +473,7 @@ class BerandaScreenState extends State<BerandaScreen> {
                               children: [
                                 Text(
                                   voltage != null ? '${voltage.toStringAsFixed(1)}V' : 'N/A',
-                                  style: FNetTheme.monoStyle(fontSize: 16, fontWeight: FontWeight.w800, color: FNetTheme.sky),
+                                  style: FNetTheme.monoStyle(fontSize: 16, fontWeight: FontWeight.w800, color: colorScheme.secondary),
                                 ),
                                 Text(
                                   voltage != null && (voltage < 20 || voltage > 27.5) ? 'Fluktuasi' : 'Stabil',
@@ -505,7 +505,7 @@ class BerandaScreenState extends State<BerandaScreen> {
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.insights_rounded, color: FNetTheme.emerald, size: 20),
+                          Icon(Icons.insights_rounded, color: colorScheme.primary, size: 20),
                           const SizedBox(width: 8),
                           Text(
                             'Grafik Trafik Jaringan',
@@ -515,8 +515,8 @@ class BerandaScreenState extends State<BerandaScreen> {
                       ),
                       Badge(
                         label: const Text('LIVE', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 10)),
-                        backgroundColor: FNetTheme.emerald.withValues(alpha: 0.18),
-                        textColor: FNetTheme.emerald,
+                        backgroundColor: colorScheme.primaryContainer,
+                        textColor: colorScheme.onPrimaryContainer,
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       ),
                     ],
@@ -546,7 +546,7 @@ class BerandaScreenState extends State<BerandaScreen> {
                               Icon(
                                 Icons.circle,
                                 size: 8,
-                                color: isRunning ? FNetTheme.emerald : Colors.grey,
+                                color: isRunning ? colorScheme.primary : colorScheme.outline,
                               ),
                               const SizedBox(width: 8),
                               Text(
@@ -586,7 +586,7 @@ class BerandaScreenState extends State<BerandaScreen> {
                               avatar: Icon(
                                 Icons.circle,
                                 size: 8,
-                                color: isRunning ? FNetTheme.emerald : Colors.grey,
+                                color: isRunning ? colorScheme.primary : colorScheme.outline,
                               ),
                               label: Text(i.name),
                               selected: isSelected,
@@ -651,10 +651,10 @@ class BerandaScreenState extends State<BerandaScreen> {
                       final isRunning = iface.running;
                       final isDisabled = iface.disabled;
 
-                      Color statusCol = FNetTheme.emerald;
+                      Color statusCol = colorScheme.primary;
                       String statusText = 'Running';
                       if (isDisabled) {
-                        statusCol = Colors.grey;
+                        statusCol = colorScheme.outline;
                         statusText = 'Disabled';
                       } else if (!isRunning) {
                         statusCol = colorScheme.error;

@@ -24,9 +24,9 @@ class SmoothGauge extends StatelessWidget {
     if (clamped >= 85) {
       indicatorColor = colorScheme.error;
     } else if (clamped >= 60) {
-      indicatorColor = FNetTheme.amber;
+      indicatorColor = colorScheme.tertiary;
     } else {
-      indicatorColor = FNetTheme.emerald;
+      indicatorColor = colorScheme.primary;
     }
 
     return Column(

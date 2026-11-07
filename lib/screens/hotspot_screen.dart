@@ -308,7 +308,14 @@ class HotspotScreenState extends State<HotspotScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      showDragHandle: true,
       useSafeArea: true,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.85,
+      ),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setModalState) {
           final theme = Theme.of(ctx);
@@ -462,7 +469,14 @@ class HotspotScreenState extends State<HotspotScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      showDragHandle: true,
       useSafeArea: true,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.85,
+      ),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setModalState) {
           final theme = Theme.of(ctx);
@@ -638,6 +652,127 @@ class HotspotScreenState extends State<HotspotScreen> {
     );
   }
 
+  void _showAddHotspotProfileModal() {
+    final nameCtrl = TextEditingController();
+    final sharedCtrl = TextEditingController(text: '1');
+    final rateCtrl = TextEditingController(text: '5M/5M');
+    final poolCtrl = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      useSafeArea: true,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.85,
+      ),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) {
+          final theme = Theme.of(ctx);
+          return Padding(
+            padding: EdgeInsets.only(
+              left: 24,
+              right: 24,
+              top: 8,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Tambah Paket Hotspot',
+                        style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Nama Profil Hotspot',
+                      hintText: 'Contoh: 1Jam-3K',
+                      prefixIcon: Icon(Icons.confirmation_number_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: sharedCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Shared Users (Perangkat Simultan)',
+                      hintText: '1',
+                      prefixIcon: Icon(Icons.devices),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: rateCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Rate Limit (Tx/Rx)',
+                      hintText: 'Contoh: 5M/5M',
+                      prefixIcon: Icon(Icons.speed),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: poolCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Address Pool (Opsional)',
+                      hintText: 'Contoh: hs-pool',
+                      prefixIcon: Icon(Icons.lan_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  FilledButton.icon(
+                    onPressed: () async {
+                      final name = nameCtrl.text.trim();
+                      if (name.isEmpty) {
+                        ToastBanner.show(ctx, message: 'Nama paket hotspot wajib diisi.', type: ToastType.error);
+                        return;
+                      }
+                      Navigator.pop(ctx);
+                      try {
+                        final data = {
+                          'name': name,
+                          'shared-users': sharedCtrl.text.trim().isNotEmpty ? sharedCtrl.text.trim() : '1',
+                          if (rateCtrl.text.trim().isNotEmpty) 'rate-limit': rateCtrl.text.trim(),
+                          if (poolCtrl.text.trim().isNotEmpty) 'address-pool': poolCtrl.text.trim(),
+                        };
+                        await MikrotikApiService.instance.createHotspotProfile(widget.profile, data);
+                        if (mounted) {
+                          ToastBanner.show(context, message: 'Paket Hotspot $name berhasil dibuat.', type: ToastType.success);
+                        }
+                        refreshData();
+                      } catch (e) {
+                        if (mounted) {
+                          ToastBanner.show(context, message: 'Gagal membuat paket: $e', type: ToastType.error);
+                        }
+                      }
+                    },
+                    icon: const Icon(Icons.check),
+                    label: const Text('Simpan Paket'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -719,7 +854,14 @@ class HotspotScreenState extends State<HotspotScreen> {
                 ),
               ],
             )
-          : null,
+          : _selectedSubTab == 2
+              ? FloatingActionButton.extended(
+                  heroTag: 'addHotspotProfile',
+                  onPressed: _showAddHotspotProfileModal,
+                  icon: const Icon(Icons.add),
+                  label: const Text('Tambah Paket'),
+                )
+              : null,
     );
   }
 
@@ -815,19 +957,19 @@ class HotspotScreenState extends State<HotspotScreen> {
             Color badgeCol;
             switch (exp.status) {
               case HotspotStatus.active:
-                badgeCol = FNetTheme.emerald;
+                badgeCol = colorScheme.primary;
                 break;
               case HotspotStatus.expiringSoon:
-                badgeCol = FNetTheme.amber;
+                badgeCol = colorScheme.tertiary;
                 break;
               case HotspotStatus.expired:
-                badgeCol = FNetTheme.rose;
+                badgeCol = colorScheme.error;
                 break;
               case HotspotStatus.unused:
-                badgeCol = FNetTheme.sky;
+                badgeCol = colorScheme.secondary;
                 break;
               case HotspotStatus.disabled:
-                badgeCol = Colors.grey;
+                badgeCol = colorScheme.outline;
                 break;
             }
 
@@ -845,7 +987,7 @@ class HotspotScreenState extends State<HotspotScreen> {
                           children: [
                             Badge(
                               smallSize: 10,
-                              backgroundColor: isOnline ? FNetTheme.emerald : Colors.grey,
+                              backgroundColor: isOnline ? colorScheme.primary : colorScheme.outline,
                             ),
                             const SizedBox(width: 10),
                             SelectableText(
@@ -902,8 +1044,8 @@ class HotspotScreenState extends State<HotspotScreen> {
                         OutlinedButton.icon(
                           onPressed: () => _handleResetMac(user),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: FNetTheme.amber,
-                            side: const BorderSide(color: FNetTheme.amber),
+                            foregroundColor: colorScheme.tertiary,
+                            side: BorderSide(color: colorScheme.tertiary),
                             minimumSize: const Size(48, 40),
                           ),
                           icon: const Icon(Icons.phonelink_erase, size: 18),
@@ -1016,8 +1158,8 @@ class HotspotScreenState extends State<HotspotScreen> {
               margin: const EdgeInsets.only(bottom: 10),
               child: ListTile(
                 leading: CircleAvatar(
-                  backgroundColor: FNetTheme.emerald.withValues(alpha: 0.16),
-                  foregroundColor: FNetTheme.emerald,
+                  backgroundColor: colorScheme.primaryContainer,
+                  foregroundColor: colorScheme.onPrimaryContainer,
                   radius: 20,
                   child: const Icon(Icons.wifi, size: 20),
                 ),
@@ -1032,7 +1174,7 @@ class HotspotScreenState extends State<HotspotScreen> {
                 ),
                 trailing: IconButton(
                   onPressed: () => _handleDisconnectActive(active),
-                  icon: const Icon(Icons.link_off, color: FNetTheme.rose, size: 22),
+                  icon: Icon(Icons.link_off, color: colorScheme.error, size: 22),
                   tooltip: 'Putuskan Voucher',
                 ),
               ),
@@ -1134,7 +1276,7 @@ class HotspotScreenState extends State<HotspotScreen> {
                     ),
                     const SizedBox(height: 6),
                     if (p.rateLimit.isNotEmpty)
-                      Text('Rate Limit: ${p.rateLimit}', style: FNetTheme.monoStyle(fontSize: 13, fontWeight: FontWeight.w800, color: FNetTheme.emerald)),
+                      Text('Rate Limit: ${p.rateLimit}', style: FNetTheme.monoStyle(fontSize: 13, fontWeight: FontWeight.w800, color: colorScheme.primary)),
                     Text(
                       'Shared Users: ${p.sharedUsers} • Pool: ${p.addressPool.isNotEmpty ? p.addressPool : "none"}',
                       style: FNetTheme.monoStyle(fontSize: 10, color: colorScheme.onSurfaceVariant),

@@ -7,10 +7,12 @@ import '../widgets/toast_banner.dart';
 
 class PppoeScreen extends StatefulWidget {
   final RouterProfile profile;
+  final Map<String, String>? initialSecretData;
 
   const PppoeScreen({
     super.key,
     required this.profile,
+    this.initialSecretData,
   });
 
   @override
@@ -40,6 +42,15 @@ class PppoeScreenState extends State<PppoeScreen> {
     _secretScrollController.addListener(_onSecretScroll);
     _activeScrollController.addListener(_onActiveScroll);
     refreshData();
+    if (widget.initialSecretData != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        openAddSecretPrefilled(
+          name: widget.initialSecretData!['name'] ?? '',
+          ip: widget.initialSecretData!['ip'] ?? '',
+          comment: widget.initialSecretData!['comment'] ?? '',
+        );
+      });
+    }
   }
 
   @override
@@ -212,7 +223,14 @@ class PppoeScreenState extends State<PppoeScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      showDragHandle: true,
       useSafeArea: true,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.85,
+      ),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setModalState) {
           final theme = Theme.of(ctx);
@@ -456,6 +474,125 @@ class PppoeScreenState extends State<PppoeScreen> {
     openCreateSecret(initialName: name, initialIp: ip, initialComment: comment);
   }
 
+  void _showAddProfileDialog() {
+    final nameCtrl = TextEditingController();
+    final rateCtrl = TextEditingController(text: '10M/10M');
+    final localCtrl = TextEditingController();
+    final remoteCtrl = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      useSafeArea: true,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.85,
+      ),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) {
+          final theme = Theme.of(ctx);
+          return Padding(
+            padding: EdgeInsets.only(
+              left: 24,
+              right: 24,
+              top: 8,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Tambah Paket PPPoE',
+                        style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Nama Profil / Paket',
+                      prefixIcon: Icon(Icons.speed),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: rateCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Rate Limit (Tx/Rx)',
+                      hintText: 'Contoh: 10M/10M',
+                      prefixIcon: Icon(Icons.tune),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: localCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Local Address (Opsional)',
+                      hintText: 'Contoh: 192.168.10.1',
+                      prefixIcon: Icon(Icons.dns_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: remoteCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Remote Address / IP Pool (Opsional)',
+                      hintText: 'Contoh: pool-pppoe',
+                      prefixIcon: Icon(Icons.lan_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  FilledButton.icon(
+                    onPressed: () async {
+                      final name = nameCtrl.text.trim();
+                      if (name.isEmpty) {
+                        ToastBanner.show(ctx, message: 'Nama profil wajib diisi.', type: ToastType.error);
+                        return;
+                      }
+                      Navigator.pop(ctx);
+                      try {
+                        final data = {
+                          'name': name,
+                          if (rateCtrl.text.trim().isNotEmpty) 'rate-limit': rateCtrl.text.trim(),
+                          if (localCtrl.text.trim().isNotEmpty) 'local-address': localCtrl.text.trim(),
+                          if (remoteCtrl.text.trim().isNotEmpty) 'remote-address': remoteCtrl.text.trim(),
+                        };
+                        await MikrotikApiService.instance.createPppProfile(widget.profile, data);
+                        if (mounted) {
+                          ToastBanner.show(context, message: 'Paket PPPoE $name berhasil dibuat.', type: ToastType.success);
+                        }
+                        refreshData();
+                      } catch (e) {
+                        if (mounted) {
+                          ToastBanner.show(context, message: 'Gagal membuat paket: $e', type: ToastType.error);
+                        }
+                      }
+                    },
+                    icon: const Icon(Icons.check),
+                    label: const Text('Simpan Paket'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -525,7 +662,13 @@ class PppoeScreenState extends State<PppoeScreen> {
               icon: const Icon(Icons.add),
               label: const Text('Tambah Pelanggan'),
             )
-          : null,
+          : _selectedSubTab == 2
+              ? FloatingActionButton.extended(
+                  onPressed: _showAddProfileDialog,
+                  icon: const Icon(Icons.add),
+                  label: const Text('Tambah Paket'),
+                )
+              : null,
     );
   }
 
@@ -631,19 +774,19 @@ class PppoeScreenState extends State<PppoeScreen> {
             } else {
               switch (parsed.status) {
                 case ExpiryStatus.expired:
-                  badgeCol = FNetTheme.rose;
+                  badgeCol = colorScheme.error;
                   badgeText = 'Kadaluarsa';
                   break;
                 case ExpiryStatus.expiringSoon:
-                  badgeCol = FNetTheme.amber;
+                  badgeCol = colorScheme.tertiary;
                   badgeText = 'Sisa ${parsed.daysRemaining} hari';
                   break;
                 case ExpiryStatus.active:
-                  badgeCol = FNetTheme.emerald;
+                  badgeCol = colorScheme.primary;
                   badgeText = 'Aktif (${parsed.daysRemaining}h)';
                   break;
                 case ExpiryStatus.noExpiry:
-                  badgeCol = Colors.grey;
+                  badgeCol = colorScheme.outline;
                   badgeText = 'Tanpa Batas';
                   break;
               }
@@ -670,7 +813,7 @@ class PppoeScreenState extends State<PppoeScreen> {
                           children: [
                             Badge(
                               smallSize: 10,
-                              backgroundColor: isOnline ? FNetTheme.emerald : Colors.grey,
+                              backgroundColor: isOnline ? colorScheme.primary : colorScheme.outline,
                             ),
                             const SizedBox(width: 10),
                             Text(
@@ -731,8 +874,8 @@ class PppoeScreenState extends State<PppoeScreen> {
                         FilledButton.tonalIcon(
                           onPressed: () => _handleExtend30Days(secret),
                           style: FilledButton.styleFrom(
-                            backgroundColor: FNetTheme.emerald.withValues(alpha: 0.14),
-                            foregroundColor: FNetTheme.emerald,
+                            backgroundColor: colorScheme.primaryContainer,
+                            foregroundColor: colorScheme.onPrimaryContainer,
                             minimumSize: const Size(48, 40),
                           ),
                           icon: const Icon(Icons.more_time, size: 18),
@@ -741,8 +884,8 @@ class PppoeScreenState extends State<PppoeScreen> {
                         OutlinedButton.icon(
                           onPressed: () => _handleToggleIsolir(secret),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: secret.disabled ? FNetTheme.emerald : colorScheme.error,
-                            side: BorderSide(color: secret.disabled ? FNetTheme.emerald : colorScheme.error),
+                            foregroundColor: secret.disabled ? colorScheme.primary : colorScheme.error,
+                            side: BorderSide(color: secret.disabled ? colorScheme.primary : colorScheme.error),
                             minimumSize: const Size(48, 40),
                           ),
                           icon: Icon(secret.disabled ? Icons.lock_open : Icons.lock_outline, size: 18),
@@ -853,8 +996,8 @@ class PppoeScreenState extends State<PppoeScreen> {
           margin: const EdgeInsets.only(bottom: 10),
           child: ListTile(
             leading: CircleAvatar(
-              backgroundColor: FNetTheme.emerald.withValues(alpha: 0.16),
-              foregroundColor: FNetTheme.emerald,
+              backgroundColor: colorScheme.primaryContainer,
+              foregroundColor: colorScheme.onPrimaryContainer,
               radius: 20,
               child: const Icon(Icons.wifi_tethering, size: 20),
             ),
@@ -869,7 +1012,7 @@ class PppoeScreenState extends State<PppoeScreen> {
             ),
             trailing: IconButton(
               onPressed: () => _handleDisconnectActive(active),
-              icon: const Icon(Icons.link_off, color: FNetTheme.rose, size: 22),
+              icon: Icon(Icons.link_off, color: colorScheme.error, size: 22),
               tooltip: 'Putuskan Sesi',
             ),
           ),
@@ -909,7 +1052,7 @@ class PppoeScreenState extends State<PppoeScreen> {
                   ),
                   const SizedBox(height: 6),
                   if (p.rateLimit.isNotEmpty)
-                    Text('Rate Limit: ${p.rateLimit}', style: FNetTheme.monoStyle(fontSize: 13, fontWeight: FontWeight.w800, color: FNetTheme.emerald)),
+                    Text('Rate Limit: ${p.rateLimit}', style: FNetTheme.monoStyle(fontSize: 13, fontWeight: FontWeight.w800, color: colorScheme.primary)),
                   if (p.localAddress.isNotEmpty || p.remoteAddress.isNotEmpty)
                     Text(
                       'Local: ${p.localAddress.isNotEmpty ? p.localAddress : "-"} • Pool: ${p.remoteAddress.isNotEmpty ? p.remoteAddress : "-"}',

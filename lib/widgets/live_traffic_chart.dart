@@ -107,13 +107,13 @@ class _LiveTrafficChartState extends State<LiveTrafficChart> {
                           children: [
                             Row(
                               children: [
-                                const Icon(Icons.arrow_downward_rounded, color: FNetTheme.emerald, size: 16),
+                                const Icon(Icons.arrow_downward_rounded, size: 16),
                                 const SizedBox(width: 4),
                                 Text(
                                   'Download (Rx)',
                                   style: theme.textTheme.labelMedium?.copyWith(
                                     fontWeight: FontWeight.w700,
-                                    color: colorScheme.onSurface,
+                                    color: colorScheme.primary,
                                   ),
                                 ),
                               ],
@@ -124,7 +124,7 @@ class _LiveTrafficChartState extends State<LiveTrafficChart> {
                               style: FNetTheme.monoStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w900,
-                                color: FNetTheme.emerald,
+                                color: colorScheme.primary,
                               ),
                             ),
                             const SizedBox(height: 8),
@@ -134,7 +134,7 @@ class _LiveTrafficChartState extends State<LiveTrafficChart> {
                                 value: rxPercent,
                                 minHeight: 6,
                                 backgroundColor: colorScheme.surfaceContainerHighest,
-                                valueColor: const AlwaysStoppedAnimation<Color>(FNetTheme.emerald),
+                                valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
                               ),
                             ),
                           ],
@@ -159,13 +159,13 @@ class _LiveTrafficChartState extends State<LiveTrafficChart> {
                           children: [
                             Row(
                               children: [
-                                const Icon(Icons.arrow_upward_rounded, color: FNetTheme.sky, size: 16),
+                                const Icon(Icons.arrow_upward_rounded, size: 16),
                                 const SizedBox(width: 4),
                                 Text(
                                   'Upload (Tx)',
                                   style: theme.textTheme.labelMedium?.copyWith(
                                     fontWeight: FontWeight.w700,
-                                    color: colorScheme.onSurface,
+                                    color: colorScheme.secondary,
                                   ),
                                 ),
                               ],
@@ -176,7 +176,7 @@ class _LiveTrafficChartState extends State<LiveTrafficChart> {
                               style: FNetTheme.monoStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w900,
-                                color: FNetTheme.sky,
+                                color: colorScheme.secondary,
                               ),
                             ),
                             const SizedBox(height: 8),
@@ -186,7 +186,7 @@ class _LiveTrafficChartState extends State<LiveTrafficChart> {
                                 value: txPercent,
                                 minHeight: 6,
                                 backgroundColor: colorScheme.surfaceContainerHighest,
-                                valueColor: const AlwaysStoppedAnimation<Color>(FNetTheme.sky),
+                                valueColor: AlwaysStoppedAnimation<Color>(colorScheme.secondary),
                               ),
                             ),
                           ],
@@ -240,17 +240,17 @@ class _LiveTrafficChartState extends State<LiveTrafficChart> {
                   if (_viewMode == 'rx') {
                     barWidget = Container(
                       height: rxHeight,
-                      decoration: const BoxDecoration(
-                        color: FNetTheme.emerald,
-                        borderRadius: BorderRadius.vertical(top: Radius.circular(2)),
+                      decoration: BoxDecoration(
+                        color: colorScheme.primary,
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(2)),
                       ),
                     );
                   } else if (_viewMode == 'tx') {
                     barWidget = Container(
                       height: txHeight,
-                      decoration: const BoxDecoration(
-                        color: FNetTheme.sky,
-                        borderRadius: BorderRadius.vertical(top: Radius.circular(2)),
+                      decoration: BoxDecoration(
+                        color: colorScheme.secondary,
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(2)),
                       ),
                     );
                   } else {
@@ -261,9 +261,9 @@ class _LiveTrafficChartState extends State<LiveTrafficChart> {
                         Expanded(
                           child: Container(
                             height: rxHeight,
-                            decoration: const BoxDecoration(
-                              color: FNetTheme.emerald,
-                              borderRadius: BorderRadius.vertical(top: Radius.circular(2)),
+                            decoration: BoxDecoration(
+                              color: colorScheme.primary,
+                              borderRadius: const BorderRadius.vertical(top: Radius.circular(2)),
                             ),
                           ),
                         ),
@@ -271,9 +271,9 @@ class _LiveTrafficChartState extends State<LiveTrafficChart> {
                         Expanded(
                           child: Container(
                             height: txHeight,
-                            decoration: const BoxDecoration(
-                              color: FNetTheme.sky,
-                              borderRadius: BorderRadius.vertical(top: Radius.circular(2)),
+                            decoration: BoxDecoration(
+                              color: colorScheme.secondary,
+                              borderRadius: const BorderRadius.vertical(top: Radius.circular(2)),
                             ),
                           ),
                         ),
@@ -324,8 +324,8 @@ class _LiveTrafficChartState extends State<LiveTrafficChart> {
                     Container(
                       width: 8,
                       height: 8,
-                      decoration: const BoxDecoration(
-                        color: FNetTheme.emerald,
+                      decoration: BoxDecoration(
+                        color: colorScheme.primary,
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -346,8 +346,8 @@ class _LiveTrafficChartState extends State<LiveTrafficChart> {
                     Container(
                       width: 8,
                       height: 8,
-                      decoration: const BoxDecoration(
-                        color: FNetTheme.sky,
+                      decoration: BoxDecoration(
+                        color: colorScheme.secondary,
                         shape: BoxShape.circle,
                       ),
                     ),

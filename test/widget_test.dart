@@ -72,4 +72,29 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Tambah Profil Router'), findsNothing);
   });
+
+  testWidgets('PPPoE, Hotspot, and DHCP tabs load with Material 3 navigation and action buttons', (WidgetTester tester) async {
+    await tester.pumpWidget(const MikrotikManagerApp(
+      initialLoggedIn: true,
+      initialTheme: 'dark',
+    ));
+
+    // Tap PPPoE tab
+    await tester.tap(find.text('PPPoE').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tambah Pelanggan'), findsOneWidget);
+
+    // Tap Hotspot tab
+    await tester.tap(find.text('Hotspot').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Batch'), findsOneWidget);
+
+    // Tap DHCP tab
+    await tester.tap(find.text('DHCP').last);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SearchBar), findsOneWidget);
+  });
 }
