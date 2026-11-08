@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fnet/main.dart';
+import 'package:fnet/models/mikrotik_models.dart';
+import 'package:fnet/screens/dhcp_screen.dart';
+import 'package:fnet/widgets/loading_indicator_m3e.dart';
 
 void main() {
   testWidgets('MikrotikManagerApp loads login screen when not logged in', (WidgetTester tester) async {
@@ -25,6 +28,7 @@ void main() {
     expect(find.text('Hotspot'), findsWidgets);
     expect(find.text('DHCP'), findsWidgets);
     expect(find.text('Pengaturan'), findsWidgets);
+    expect(find.text('Memuat data Dashboard...'), findsOneWidget);
 
     // Switch to Pengaturan tab
     await tester.tap(find.text('Pengaturan').last);
@@ -67,34 +71,108 @@ void main() {
     expect(find.text('Tes Koneksi'), findsOneWidget);
     expect(find.text('Simpan'), findsOneWidget);
 
+    // Tap Tes Koneksi - verify inline error (no SnackBar)
+    await tester.tap(find.text('Tes Koneksi'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Koneksi gagal'), findsOneWidget);
+    expect(find.byType(SnackBar), findsNothing);
+
     // Close bottom sheet
     await tester.tap(find.byIcon(Icons.close_rounded));
     await tester.pumpAndSettle();
     expect(find.text('Tambah Profil Router'), findsNothing);
   });
 
-  testWidgets('PPPoE, Hotspot, and DHCP tabs load with Material 3 navigation and action buttons', (WidgetTester tester) async {
+  testWidgets('PPPoE, Hotspot, and DHCP screens hide top buttons/TabBar when loading and when loading fails', (WidgetTester tester) async {
     await tester.pumpWidget(const MikrotikManagerApp(
       initialLoggedIn: true,
       initialTheme: 'dark',
     ));
 
-    // Tap PPPoE tab
+    // Tap PPPoE tab - verify while loading
+    await tester.tap(find.text('PPPoE').last);
+    await tester.pump(); // frame 1: loading
+    expect(find.byType(TabBar), findsNothing);
+    expect(find.byType(LoadingIndicatorM3E), findsWidgets);
+    expect(find.text('Memuat data PPPoE...'), findsOneWidget);
+
+    // Wait until network timeout/fail
+    await tester.pumpAndSettle();
+    expect(find.text('Gagal Menghubungi Router'), findsOneWidget);
+    expect(find.byType(TabBar), findsNothing);
+    expect(find.byTooltip('Tambah Pelanggan'), findsNothing);
+
+    // Tap Hotspot tab - verify while loading
+    await tester.tap(find.text('Hotspot').last);
+    await tester.pump(); // frame 1: loading
+    expect(find.byType(TabBar), findsNothing);
+    expect(find.byType(LoadingIndicatorM3E), findsWidgets);
+    expect(find.text('Memuat data Hotspot...'), findsOneWidget);
+
+    // Wait until network timeout/fail
+    await tester.pumpAndSettle();
+    expect(find.text('Gagal Menghubungi Router'), findsOneWidget);
+    expect(find.byType(TabBar), findsNothing);
+    expect(find.byTooltip('Tambah Voucher'), findsNothing);
+
+    // Tap DHCP tab - verify while loading
+    await tester.tap(find.text('DHCP').last);
+    await tester.pump(); // frame 1: loading
+    expect(find.byType(TabBar), findsNothing);
+    expect(find.byType(LoadingIndicatorM3E), findsWidgets);
+    expect(find.text('Memuat data DHCP Server...'), findsOneWidget);
+
+    // Wait until network timeout/fail
+    await tester.pumpAndSettle();
+    expect(find.text('Gagal Menghubungi Router'), findsOneWidget);
+    expect(find.byType(TabBar), findsNothing);
+  });
+
+  testWidgets('AppBar has search button on PPPoE, Hotspot, and DHCP, replacing theme toggle', (WidgetTester tester) async {
+    await tester.pumpWidget(const MikrotikManagerApp(
+      initialLoggedIn: true,
+      initialTheme: 'dark',
+    ));
+
+    // On Dashboard, theme icon is not in AppBar
+    expect(find.byIcon(Icons.dark_mode_outlined), findsNothing);
+    expect(find.byIcon(Icons.light_mode_outlined), findsNothing);
+    expect(find.byTooltip('Cari'), findsNothing);
+
+    // Switch to PPPoE tab
     await tester.tap(find.text('PPPoE').last);
     await tester.pumpAndSettle();
 
-    expect(find.text('Tambah Pelanggan'), findsOneWidget);
+    // Verify search icon exists in AppBar and theme icon does not
+    expect(find.byTooltip('Cari'), findsOneWidget);
+    expect(find.byIcon(Icons.dark_mode_outlined), findsNothing);
 
-    // Tap Hotspot tab
-    await tester.tap(find.text('Hotspot').last);
+    // Tap search in AppBar
+    await tester.tap(find.byTooltip('Cari'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Batch'), findsOneWidget);
+    // Verify search input field is visible
+    expect(find.byTooltip('Tutup Pencarian'), findsOneWidget);
 
-    // Tap DHCP tab
-    await tester.tap(find.text('DHCP').last);
+    // Close search
+    await tester.tap(find.byTooltip('Tutup Pencarian'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Cari'), findsOneWidget);
+  });
+
+  testWidgets('DHCP screen displays consistent error empty state when loading fails', (WidgetTester tester) async {
+    await tester.pumpWidget(MaterialApp(
+      theme: ThemeData(useMaterial3: true),
+      home: DhcpScreen(
+        profile: RouterProfile(id: 'err-test', name: 'Offline Router', host: '127.0.0.1', port: 19999, username: 'admin'),
+        onConvertToPppoe: ({required name, required ip, required comment}) {},
+      ),
+    ));
+
     await tester.pumpAndSettle();
 
-    expect(find.byType(SearchBar), findsOneWidget);
+    expect(find.byIcon(Icons.cloud_off_rounded), findsOneWidget);
+    expect(find.text('Gagal Menghubungi Router'), findsOneWidget);
+    expect(find.text('Coba Lagi'), findsOneWidget);
   });
 }

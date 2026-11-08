@@ -4,15 +4,18 @@ import '../models/mikrotik_models.dart';
 import '../services/mikrotik_api_service.dart';
 import '../theme/fnet_theme.dart';
 import '../utils/format_utils.dart';
+import '../widgets/loading_indicator_m3e.dart';
 import '../widgets/toast_banner.dart';
 
 class DhcpScreen extends StatefulWidget {
   final RouterProfile profile;
+  final String searchQuery;
   final void Function({required String name, required String ip, required String comment}) onConvertToPppoe;
 
   const DhcpScreen({
     super.key,
     required this.profile,
+    this.searchQuery = '',
     required this.onConvertToPppoe,
   });
 
@@ -22,9 +25,10 @@ class DhcpScreen extends StatefulWidget {
 
 class DhcpScreenState extends State<DhcpScreen> {
   bool _isLoading = true;
+  String? _errorMessage;
   List<DhcpLease> _leases = [];
   String _searchQuery = '';
-  String _statusFilter = 'all';
+  int _selectedSubTab = 0; // 0: Semua, 1: Aktif, 2: Menunggu
   String _serverFilter = 'all';
 
   // Infinite Scroll Lazy Load Chunking (25 data per chunk)
@@ -34,6 +38,7 @@ class DhcpScreenState extends State<DhcpScreen> {
   @override
   void initState() {
     super.initState();
+    _searchQuery = widget.searchQuery;
     _leaseScrollController.addListener(_onScroll);
     refreshData();
   }
@@ -41,12 +46,25 @@ class DhcpScreenState extends State<DhcpScreen> {
   @override
   void didUpdateWidget(covariant DhcpScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.searchQuery != widget.searchQuery) {
+      _searchQuery = widget.searchQuery;
+      _visibleLeasesCount = 25;
+    }
     if (oldWidget.profile.id != widget.profile.id ||
         oldWidget.profile.host != widget.profile.host ||
         oldWidget.profile.port != widget.profile.port) {
+      _errorMessage = null;
       _visibleLeasesCount = 25;
+      _leases = [];
       refreshData();
     }
+  }
+
+  void setSearchQuery(String query) {
+    setState(() {
+      _searchQuery = query;
+      _visibleLeasesCount = 25;
+    });
   }
 
   @override
@@ -68,18 +86,25 @@ class DhcpScreenState extends State<DhcpScreen> {
   }
 
   Future<void> refreshData() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
     try {
       final leases = await MikrotikApiService.instance.getDhcpLeases(widget.profile);
       if (mounted) {
         setState(() {
           _leases = leases;
           _isLoading = false;
+          _errorMessage = null;
         });
       }
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _isLoading = false;
+          _errorMessage = e.toString().replaceFirst('Exception: ', '');
+        });
       }
     }
   }
@@ -156,6 +181,45 @@ class DhcpScreenState extends State<DhcpScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final bool hasError = _errorMessage != null;
+
+    if (hasError) {
+      return Scaffold(
+        body: _buildErrorEmptyState(theme, colorScheme),
+      );
+    }
+
+    if (_isLoading) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer,
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: LoadingIndicatorM3E(
+                  size: 36,
+                  color: colorScheme.primary,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Memuat data DHCP Server...',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     final filtered = _leases.where((l) {
       if (_searchQuery.isNotEmpty) {
@@ -167,14 +231,10 @@ class DhcpScreenState extends State<DhcpScreen> {
           return false;
         }
       }
-      if (_statusFilter == 'bound') {
+      if (_selectedSubTab == 1) {
         if (l.status != 'bound') return false;
-      } else if (_statusFilter == 'dynamic') {
-        if (!l.isDynamic) return false;
-      } else if (_statusFilter == 'static') {
-        if (l.isDynamic) return false;
-      } else if (_statusFilter == 'waiting') {
-        if (l.status != 'waiting') return false;
+      } else if (_selectedSubTab == 2) {
+        if (l.status == 'bound') return false;
       }
       if (_serverFilter != 'all') {
         if (l.server != _serverFilter) return false;
@@ -185,99 +245,76 @@ class DhcpScreenState extends State<DhcpScreen> {
     final visibleItems = filtered.take(_visibleLeasesCount).toList();
     final servers = _leases.map((l) => l.server).where((s) => s.isNotEmpty).toSet().toList();
 
-    return Scaffold(
-      body: _isLoading
-          ? Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularProgressIndicator(color: colorScheme.primary),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Memuat data DHCP Server...',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            )
-          : RefreshIndicator(
-              onRefresh: refreshData,
-              color: colorScheme.primary,
-              child: ListView(
-                controller: _leaseScrollController,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                children: [
-                  // Official M3 SearchBar
-                  SearchBar(
-                    hintText: 'Cari IP, MAC, hostname ONT...',
-                    leading: const Icon(Icons.search),
-                    elevation: const WidgetStatePropertyAll(0),
-                    backgroundColor: WidgetStatePropertyAll(colorScheme.surfaceContainerLowest),
-                    side: WidgetStatePropertyAll(BorderSide(color: colorScheme.outlineVariant)),
-                    shape: WidgetStatePropertyAll(
-                      RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    onChanged: (val) {
-                      setState(() {
-                        _searchQuery = val;
-                        _visibleLeasesCount = 25;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 12),
+    final totalCount = _leases.length;
+    final boundCount = _leases.where((l) => l.status == 'bound').length;
+    final waitingCount = _leases.where((l) => l.status != 'bound').length;
 
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        _buildFilterChip('all', 'Semua (${_leases.length})'),
-                        _buildFilterChip('bound', 'Bound (Terhubung)'),
-                        _buildFilterChip('static', 'Static'),
-                        _buildFilterChip('dynamic', 'Dynamic'),
-                        _buildFilterChip('waiting', 'Menunggu'),
-                      ],
-                    ),
-                  ),
-
-                  if (servers.length > 1) ...[
-                    const SizedBox(height: 8),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: FilterChip(
-                              selected: _serverFilter == 'all',
-                              label: const Text('Semua Server'),
-                              onSelected: (_) {
-                                setState(() {
-                                  _serverFilter = 'all';
-                                  _visibleLeasesCount = 25;
-                                });
-                              },
-                            ),
-                          ),
-                          ...servers.map((s) => Padding(
-                                padding: const EdgeInsets.only(right: 8),
-                                child: FilterChip(
-                                  selected: _serverFilter == s,
-                                  label: Text('Server: $s'),
-                                  onSelected: (_) {
-                                    setState(() {
-                                      _serverFilter = s;
-                                      _visibleLeasesCount = 25;
-                                    });
-                                  },
-                                ),
-                              )),
-                        ],
-                      ),
-                    ),
+    return DefaultTabController(
+      length: 3,
+      initialIndex: _selectedSubTab,
+      child: Builder(
+        builder: (ctx) {
+          return Scaffold(
+            body: Column(
+              children: [
+                // Official Material 3 Secondary TabBar
+                TabBar(
+                  onTap: (index) {
+                    setState(() {
+                      _selectedSubTab = index;
+                      _visibleLeasesCount = 25;
+                    });
+                  },
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  labelColor: colorScheme.primary,
+                  unselectedLabelColor: colorScheme.onSurfaceVariant,
+                  tabs: [
+                    Tab(text: 'Semua ($totalCount)'),
+                    Tab(text: 'Aktif ($boundCount)'),
+                    Tab(text: 'Menunggu ($waitingCount)'),
                   ],
-                  const SizedBox(height: 14),
+                ),
+
+                // Content body
+                Expanded(
+                  child: RefreshIndicator(
+                    onRefresh: refreshData,
+                    color: colorScheme.primary,
+                    child: ListView(
+                      controller: _leaseScrollController,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      children: [
+                              // Optional Server Filter Buttons (if router has multiple DHCP servers)
+                              if (servers.length > 1) ...[
+                                SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  child: Row(
+                                    children: [
+                                      _buildServerButton('all', 'Semua Server', colorScheme),
+                                      const SizedBox(width: 8),
+                                      ...servers.map((s) => Padding(
+                                        padding: const EdgeInsets.only(right: 8),
+                                        child: _buildServerButton(s, 'Server: $s', colorScheme),
+                                      )),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                              ],
+
+                              // Active search indicator (if searched from AppBar)
+                              if (_searchQuery.isNotEmpty) ...[
+                                Row(
+                                  children: [
+                                    InputChip(
+                                      avatar: const Icon(Icons.search, size: 16),
+                                      label: Text('Pencarian: "$_searchQuery"'),
+                                      onDeleted: () => setSearchQuery(''),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                              ],
 
                   if (filtered.isEmpty)
                     Center(
@@ -436,9 +473,11 @@ class DhcpScreenState extends State<DhcpScreen> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                width: 18,
+                                height: 18,
+                                child: LoadingIndicatorM3E(
+                                  size: 18,
+                                ),
                               ),
                               const SizedBox(width: 12),
                               Text(
@@ -454,23 +493,92 @@ class DhcpScreenState extends State<DhcpScreen> {
                 ],
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  },
+),
+);
+  }
+
+  Widget _buildErrorEmptyState(ThemeData theme, ColorScheme colorScheme) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: colorScheme.errorContainer.withValues(alpha: 0.4),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.cloud_off_rounded,
+                size: 32,
+                color: colorScheme.error,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Gagal Menghubungi Router',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _errorMessage ?? 'Terjadi kesalahan saat memuat data DHCP dari router.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 20),
+            FilledButton.tonalIcon(
+              onPressed: refreshData,
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: const Text('Coba Lagi'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _buildFilterChip(String key, String label) {
-    final isSelected = _statusFilter == key;
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: FilterChip(
-        selected: isSelected,
-        label: Text(label),
-        onSelected: (_) {
+  Widget _buildServerButton(String server, String label, ColorScheme colorScheme) {
+    final isSelected = _serverFilter == server;
+    if (isSelected) {
+      return FilledButton.tonal(
+        onPressed: () {
           setState(() {
-            _statusFilter = key;
+            _serverFilter = server;
             _visibleLeasesCount = 25;
           });
         },
-      ),
-    );
+        style: FilledButton.styleFrom(
+          visualDensity: VisualDensity.compact,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        ),
+        child: Text(label),
+      );
+    } else {
+      return OutlinedButton(
+        onPressed: () {
+          setState(() {
+            _serverFilter = server;
+            _visibleLeasesCount = 25;
+          });
+        },
+        style: OutlinedButton.styleFrom(
+          visualDensity: VisualDensity.compact,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        ),
+        child: Text(label),
+      );
+    }
   }
 }

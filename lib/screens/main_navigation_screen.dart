@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../models/mikrotik_models.dart';
 import '../services/storage_service.dart';
@@ -7,6 +6,7 @@ import 'beranda_screen.dart';
 import 'pppoe_screen.dart';
 import 'hotspot_screen.dart';
 import 'dhcp_screen.dart';
+import '../widgets/toast_banner.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   final VoidCallback onToggleTheme;
@@ -26,6 +26,10 @@ class MainNavigationScreen extends StatefulWidget {
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _currentPageIndex = 0; // Default: Dashboard
+  bool _isSearching = false;
+  String _appBarSearchQuery = '';
+  final TextEditingController _appBarSearchController = TextEditingController();
+
   final GlobalKey<BerandaScreenState> _berandaKey = GlobalKey<BerandaScreenState>();
   final GlobalKey<PppoeScreenState> _pppoeKey = GlobalKey<PppoeScreenState>();
   final GlobalKey<HotspotScreenState> _hotspotKey = GlobalKey<HotspotScreenState>();
@@ -46,6 +50,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   void initState() {
     super.initState();
     _loadProfiles();
+  }
+
+  @override
+  void dispose() {
+    _appBarSearchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadProfiles() async {
@@ -103,16 +113,19 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           key: _pppoeKey,
           profile: active,
           initialSecretData: prefill,
+          searchQuery: _appBarSearchQuery,
         );
       case 2:
         return HotspotScreen(
           key: _hotspotKey,
           profile: active,
+          searchQuery: _appBarSearchQuery,
         );
       case 3:
         return DhcpScreen(
           key: _dhcpKey,
           profile: active,
+          searchQuery: _appBarSearchQuery,
           onConvertToPppoe: _handleConvertToPppoe,
         );
       case 4:
@@ -133,53 +146,130 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   @override
   Widget build(BuildContext context) {
     final active = _activeProfile;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          _titles[_currentPageIndex],
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'Segarkan Data',
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              switch (_currentPageIndex) {
-                case 0:
-                  _berandaKey.currentState?.refreshData();
-                  break;
-                case 1:
-                  _pppoeKey.currentState?.refreshData();
-                  break;
-                case 2:
-                  _hotspotKey.currentState?.refreshData();
-                  break;
-                case 3:
-                  _dhcpKey.currentState?.refreshData();
-                  break;
-                default:
-                  _loadProfiles();
-                  break;
-              }
-            },
-          ),
-          IconButton(
-            tooltip: 'Ganti Tema',
-            icon: Icon(
-              widget.isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+      appBar: _isSearching && (_currentPageIndex >= 1 && _currentPageIndex <= 3)
+          ? AppBar(
+              titleSpacing: 0,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                tooltip: 'Tutup Pencarian',
+                onPressed: () {
+                  setState(() {
+                    _isSearching = false;
+                    _appBarSearchQuery = '';
+                    _appBarSearchController.clear();
+                  });
+                },
+              ),
+              title: Padding(
+                padding: const EdgeInsets.only(right: 16),
+                child: SizedBox(
+                  height: 44,
+                  child: TextField(
+                    controller: _appBarSearchController,
+                    autofocus: true,
+                    style: theme.textTheme.bodyMedium,
+                    decoration: InputDecoration(
+                      hintText: _currentPageIndex == 1
+                          ? 'Cari pelanggan PPPoE...'
+                          : _currentPageIndex == 2
+                              ? 'Cari voucher / user hotspot...'
+                              : 'Cari IP, MAC, hostname DHCP...',
+                      hintStyle: theme.textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                      prefixIcon: const Icon(Icons.search, size: 20),
+                      suffixIcon: _appBarSearchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear, size: 18),
+                              tooltip: 'Hapus',
+                              onPressed: () {
+                                setState(() {
+                                  _appBarSearchQuery = '';
+                                  _appBarSearchController.clear();
+                                });
+                              },
+                            )
+                          : null,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                      filled: true,
+                      fillColor: colorScheme.surfaceContainerHigh,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: BorderSide.none,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: BorderSide(color: colorScheme.primary, width: 1.5),
+                      ),
+                    ),
+                    onChanged: (val) {
+                      setState(() {
+                        _appBarSearchQuery = val;
+                      });
+                    },
+                  ),
+                ),
+              ),
+            )
+          : AppBar(
+              title: Text(
+                _titles[_currentPageIndex],
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              ),
+              actions: [
+                IconButton(
+                  tooltip: 'Segarkan Data',
+                  icon: const Icon(Icons.refresh),
+                  onPressed: () {
+                    switch (_currentPageIndex) {
+                      case 0:
+                        _berandaKey.currentState?.refreshData();
+                        break;
+                      case 1:
+                        _pppoeKey.currentState?.refreshData();
+                        break;
+                      case 2:
+                        _hotspotKey.currentState?.refreshData();
+                        break;
+                      case 3:
+                        _dhcpKey.currentState?.refreshData();
+                        break;
+                      default:
+                        _loadProfiles();
+                        break;
+                    }
+                  },
+                ),
+                if (_currentPageIndex >= 1 && _currentPageIndex <= 3)
+                  IconButton(
+                    tooltip: 'Cari',
+                    icon: const Icon(Icons.search),
+                    onPressed: () {
+                      setState(() {
+                        _isSearching = true;
+                      });
+                    },
+                  ),
+                const SizedBox(width: 8),
+              ],
             ),
-            onPressed: widget.onToggleTheme,
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
       body: _buildActivePage(_currentPageIndex, active),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentPageIndex,
         onDestinationSelected: (int index) {
           setState(() {
             _currentPageIndex = index;
+            _isSearching = false;
+            _appBarSearchQuery = '';
+            _appBarSearchController.clear();
           });
         },
         destinations: const <NavigationDestination>[
@@ -245,26 +335,15 @@ class SettingsContentPage extends StatefulWidget {
 class SettingsContentPageState extends State<SettingsContentPage> {
   bool _autoReconnect = true;
   bool _alertCpu = true;
-  void Function(String msg, bool isSuccess)? _drawerNotify;
 
-  void _showNotification(String msg, {bool isSuccess = true}) {
-    if (_drawerNotify != null) {
-      // 1. KASUS: Drawer sedang terbuka -> Tampilkan notifikasi DI ATAS (di dalam drawer bagian atas)
-      _drawerNotify!(msg, isSuccess);
-    } else {
-      // 2. KASUS: Tidak ada drawer terbuka -> Tampilkan notifikasi DI BAWAH (Floating SnackBar M3)
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(msg),
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 3),
-        ),
-      );
-    }
+  void _showNotification(String msg, {bool isSuccess = true, bool atTop = false}) {
+    ToastBanner.show(
+      context,
+      message: msg,
+      type: isSuccess ? ToastType.success : ToastType.error,
+      atTop: atTop,
+    );
   }
-
-  void _showSnack(String msg, {bool isSuccess = true}) => _showNotification(msg, isSuccess: isSuccess);
 
   void _confirmSignOut() {
     showDialog(
@@ -319,6 +398,8 @@ class SettingsContentPageState extends State<SettingsContentPage> {
     bool useHttps = isAddingNew ? false : profile.useHttps;
     bool obscurePass = true;
     bool isTesting = false;
+    ConnectionTestResult? testResult;
+    String? testValidationMessage;
 
     showModalBottomSheet(
       context: context,
@@ -331,43 +412,10 @@ class SettingsContentPageState extends State<SettingsContentPage> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      builder: (modalCtx) => LayoutBuilder(
-        builder: (ctx, constraints) => ScaffoldMessenger(
-          child: Scaffold(
-            backgroundColor: Colors.transparent,
-            body: StatefulBuilder(
-              builder: (innerCtx, setModalState) {
-                _drawerNotify = (msg, isSuccess) {
-                  final h = constraints.maxHeight;
-                  ScaffoldMessenger.of(innerCtx).hideCurrentSnackBar();
-                  ScaffoldMessenger.of(innerCtx).showSnackBar(
-                    SnackBar(
-                      behavior: SnackBarBehavior.floating,
-                      margin: EdgeInsets.only(
-                        bottom: math.max(16.0, h - 85),
-                        left: 16,
-                        right: 16,
-                      ),
-                      content: Row(
-                        children: [
-                          Icon(
-                            isSuccess ? Icons.check_circle_rounded : Icons.error_outline_rounded,
-                            size: 18,
-                            color: isSuccess
-                                ? Theme.of(innerCtx).colorScheme.primary
-                                : Theme.of(innerCtx).colorScheme.error,
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(child: Text(msg)),
-                        ],
-                      ),
-                      duration: const Duration(seconds: 3),
-                    ),
-                  );
-                };
-
-                final theme = Theme.of(innerCtx);
-                final colorScheme = theme.colorScheme;
+      builder: (modalCtx) => StatefulBuilder(
+        builder: (innerCtx, setModalState) {
+          final theme = Theme.of(innerCtx);
+          final colorScheme = theme.colorScheme;
 
                 return Padding(
                   padding: EdgeInsets.only(
@@ -501,6 +549,38 @@ class SettingsContentPageState extends State<SettingsContentPage> {
                       fillColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
                     ),
                   ),
+                  // Status / Hasil Tes Koneksi (Mengubah teks, tanpa elemen baru)
+                  if (isTesting || testValidationMessage != null || testResult != null) ...[
+                    const SizedBox(height: 14),
+                    if (isTesting) ...[
+                      LinearProgressIndicator(
+                        borderRadius: BorderRadius.circular(4),
+                        color: colorScheme.primary,
+                        backgroundColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                    Center(
+                      child: Text(
+                        isTesting
+                            ? 'Menguji koneksi ke router...'
+                            : testValidationMessage != null
+                                ? testValidationMessage!
+                                : testResult!.success
+                                    ? 'Terhubung ke router! Latensi: ${testResult!.durationMs}ms'
+                                    : 'Koneksi gagal: ${testResult!.error ?? "Tidak ada respon"}',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: isTesting
+                              ? colorScheme.primary
+                              : (testValidationMessage != null || !testResult!.success)
+                                  ? colorScheme.error
+                                  : colorScheme.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 20),
 
                   // Tombol Aksi 1 Baris: Tes Koneksi & Simpan
@@ -517,11 +597,16 @@ class SettingsContentPageState extends State<SettingsContentPage> {
                               : () async {
                                   final host = hostCtrl.text.trim();
                                   if (host.isEmpty) {
-                                    _showNotification('Host/IP router tidak boleh kosong.', isSuccess: false);
+                                    setModalState(() {
+                                      testValidationMessage = 'Host/IP router tidak boleh kosong.';
+                                      testResult = null;
+                                    });
                                     return;
                                   }
                                   setModalState(() {
                                     isTesting = true;
+                                    testResult = null;
+                                    testValidationMessage = null;
                                   });
 
                                   final testProfile = RouterProfile(
@@ -539,20 +624,11 @@ class SettingsContentPageState extends State<SettingsContentPage> {
 
                                   setModalState(() {
                                     isTesting = false;
+                                    testResult = res;
+                                    testValidationMessage = null;
                                   });
-                                  if (res.success) {
-                                    _showNotification('Terhubung ke router! Latensi: ${res.durationMs}ms', isSuccess: true);
-                                  } else {
-                                    _showNotification('Koneksi gagal: ${res.error ?? "Tidak ada respon"}', isSuccess: false);
-                                  }
                                 },
-                          icon: isTesting
-                              ? SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: colorScheme.primary),
-                                )
-                              : const Icon(Icons.network_check_rounded, size: 18),
+                          icon: const Icon(Icons.network_check_rounded, size: 18),
                           label: Text(
                             isTesting ? 'Menguji...' : 'Tes Koneksi',
                             style: const TextStyle(fontWeight: FontWeight.bold),
@@ -574,7 +650,10 @@ class SettingsContentPageState extends State<SettingsContentPage> {
                             final pass = passCtrl.text;
 
                             if (name.isEmpty || host.isEmpty || user.isEmpty) {
-                              _showNotification('Nama, Host/IP, dan Username wajib diisi.', isSuccess: false);
+                              setModalState(() {
+                                testValidationMessage = 'Nama, Host/IP, dan Username wajib diisi.';
+                                testResult = null;
+                              });
                               return;
                             }
 
@@ -589,7 +668,7 @@ class SettingsContentPageState extends State<SettingsContentPage> {
                                 username: user,
                                 password: pass,
                               );
-                              Navigator.pop(ctx);
+                              Navigator.pop(modalCtx);
                               await StorageService.saveProfile(newProfile);
                               widget.onSwitchProfile?.call(newId);
                               widget.onProfilesUpdated?.call();
@@ -604,7 +683,7 @@ class SettingsContentPageState extends State<SettingsContentPage> {
                                 username: user,
                                 password: pass,
                               );
-                              Navigator.pop(ctx);
+                              Navigator.pop(modalCtx);
                               await StorageService.saveProfile(updatedProfile);
                               widget.onProfilesUpdated?.call();
                               _showNotification('Profil router "$name" berhasil disimpan.');
@@ -634,7 +713,7 @@ class SettingsContentPageState extends State<SettingsContentPage> {
                       label: const Text('Hapus Profil Router', style: TextStyle(fontWeight: FontWeight.bold)),
                       onPressed: () {
                         showDialog(
-                          context: ctx,
+                          context: modalCtx,
                           builder: (dialogCtx) => AlertDialog(
                             icon: Icon(Icons.delete_outline_rounded, color: colorScheme.error),
                             title: const Text('Hapus Router?'),
@@ -648,7 +727,7 @@ class SettingsContentPageState extends State<SettingsContentPage> {
                                 style: FilledButton.styleFrom(backgroundColor: colorScheme.error),
                                 onPressed: () async {
                                   Navigator.pop(dialogCtx);
-                                  Navigator.pop(ctx);
+                                  Navigator.pop(modalCtx);
                                   await StorageService.deleteProfile(profile.id);
                                   if (widget.activeProfile?.id == profile.id) {
                                     final remaining = widget.profiles.where((p) => p.id != profile.id).toList();
@@ -673,12 +752,7 @@ class SettingsContentPageState extends State<SettingsContentPage> {
           );
         },
       ),
-    ),
-  ),
-),
-    ).whenComplete(() {
-      _drawerNotify = null;
-    });
+    );
   }
 
   @override
@@ -788,28 +862,17 @@ class SettingsContentPageState extends State<SettingsContentPage> {
         ),
         const SizedBox(height: 16),
 
-        // Section: Operasional & Cadangan
+        // Section: Operasional & Pemeliharaan
         _buildSectionHeader('Operasional & Pemeliharaan', colorScheme.primary),
         Card(
           elevation: 0,
           color: colorScheme.surfaceContainer,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          child: Column(
-            children: [
-              ListTile(
-                leading: const Icon(Icons.cloud_upload_outlined),
-                title: const Text('Backup Konfigurasi'),
-                subtitle: const Text('Ekspor file konfigurasi RouterOS (.backup)'),
-                onTap: () => _showSnack('Backup config_mikrotik.backup berhasil dibuat!'),
-              ),
-              const Divider(height: 1, indent: 16, endIndent: 16),
-              ListTile(
-                leading: const Icon(Icons.cleaning_services_outlined),
-                title: const Text('Bersihkan Cache Lokal'),
-                subtitle: const Text('Hapus session log dan temporary stats'),
-                onTap: () => _showNotification('Cache 12.4 MB berhasil dibersihkan!'),
-              ),
-            ],
+          child: ListTile(
+            leading: const Icon(Icons.cleaning_services_outlined),
+            title: const Text('Bersihkan Cache Lokal'),
+            subtitle: const Text('Hapus session log dan temporary stats'),
+            onTap: () => _showNotification('Cache 12.4 MB berhasil dibersihkan!'),
           ),
         ),
         const SizedBox(height: 20),

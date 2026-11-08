@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/storage_service.dart';
+import '../widgets/loading_indicator_m3e.dart';
+import '../widgets/toast_banner.dart';
 
 class LoginScreen extends StatefulWidget {
   final VoidCallback onToggleTheme;
@@ -100,17 +102,10 @@ class _LoginScreenState extends State<LoginScreen> {
         if (!mounted) return;
         setState(() => _isLoading = false);
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            behavior: SnackBarBehavior.floating,
-            content: Row(
-              children: [
-                Icon(Icons.check_circle, color: Theme.of(context).colorScheme.primary),
-                const SizedBox(width: 8),
-                const Text('Sign In berhasil'),
-              ],
-            ),
-          ),
+        ToastBanner.show(
+          context,
+          message: 'Sign In berhasil.',
+          type: ToastType.success,
         );
 
         widget.onLoginSuccess?.call();
@@ -120,20 +115,10 @@ class _LoginScreenState extends State<LoginScreen> {
         if (!mounted) return;
         setState(() => _isLoading = false);
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: Theme.of(context).colorScheme.error,
-            content: Row(
-              children: [
-                Icon(Icons.error_outline, color: Theme.of(context).colorScheme.onError),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text('Username atau Password salah.', style: TextStyle(color: Theme.of(context).colorScheme.onError)),
-                ),
-              ],
-            ),
-          ),
+        ToastBanner.show(
+          context,
+          message: 'Username atau password salah.',
+          type: ToastType.error,
         );
       }
     }
@@ -315,10 +300,10 @@ class _LoginScreenState extends State<LoginScreen> {
                       onPressed: _isLoading ? null : _handleSignIn,
                       child: _isLoading
                           ? SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.5,
+                              width: 20,
+                              height: 20,
+                              child: LoadingIndicatorM3E(
+                                size: 20,
                                 color: colorScheme.onPrimary,
                               ),
                             )

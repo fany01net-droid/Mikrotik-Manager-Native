@@ -5,14 +5,17 @@ import '../services/mikrotik_api_service.dart';
 import '../theme/fnet_theme.dart';
 import '../utils/format_utils.dart';
 import '../utils/hotspot_utils.dart';
+import '../widgets/loading_indicator_m3e.dart';
 import '../widgets/toast_banner.dart';
 
 class HotspotScreen extends StatefulWidget {
   final RouterProfile profile;
+  final String searchQuery;
 
   const HotspotScreen({
     super.key,
     required this.profile,
+    this.searchQuery = '',
   });
 
   @override
@@ -22,6 +25,7 @@ class HotspotScreen extends StatefulWidget {
 class HotspotScreenState extends State<HotspotScreen> {
   int _selectedSubTab = 0; // 0: Users/Vouchers, 1: Active, 2: Profiles
   bool _isLoading = true;
+  String? _errorMessage;
 
   List<HotspotUser> _users = [];
   List<HotspotActive> _activeSessions = [];
@@ -45,6 +49,9 @@ class HotspotScreenState extends State<HotspotScreen> {
   @override
   void initState() {
     super.initState();
+    _searchQuery = widget.searchQuery;
+    _activeSearchQuery = widget.searchQuery;
+    _profileSearchQuery = widget.searchQuery;
     _voucherScrollController.addListener(_onVoucherScroll);
     _activeScrollController.addListener(_onActiveScroll);
     _profileScrollController.addListener(_onProfileScroll);
@@ -54,14 +61,37 @@ class HotspotScreenState extends State<HotspotScreen> {
   @override
   void didUpdateWidget(covariant HotspotScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.profile.id != widget.profile.id ||
-        oldWidget.profile.host != widget.profile.host ||
-        oldWidget.profile.port != widget.profile.port) {
+    if (oldWidget.searchQuery != widget.searchQuery) {
+      _searchQuery = widget.searchQuery;
+      _activeSearchQuery = widget.searchQuery;
+      _profileSearchQuery = widget.searchQuery;
       _visibleVouchersCount = 25;
       _visibleActiveCount = 25;
       _visibleProfilesCount = 25;
+    }
+    if (oldWidget.profile.id != widget.profile.id ||
+        oldWidget.profile.host != widget.profile.host ||
+        oldWidget.profile.port != widget.profile.port) {
+      _errorMessage = null;
+      _visibleVouchersCount = 25;
+      _visibleActiveCount = 25;
+      _visibleProfilesCount = 25;
+      _users = [];
+      _activeSessions = [];
+      _profiles = [];
       refreshData();
     }
+  }
+
+  void setSearchQuery(String query) {
+    setState(() {
+      _searchQuery = query;
+      _activeSearchQuery = query;
+      _profileSearchQuery = query;
+      _visibleVouchersCount = 25;
+      _visibleActiveCount = 25;
+      _visibleProfilesCount = 25;
+    });
   }
 
   @override
@@ -109,7 +139,10 @@ class HotspotScreenState extends State<HotspotScreen> {
   }
 
   Future<void> refreshData() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
     try {
       final uFuture = MikrotikApiService.instance.getHotspotUsers(widget.profile);
       final aFuture = MikrotikApiService.instance.getHotspotActive(widget.profile);
@@ -123,11 +156,15 @@ class HotspotScreenState extends State<HotspotScreen> {
           _activeSessions = results[1] as List<HotspotActive>;
           _profiles = results[2] as List<HotspotProfile>;
           _isLoading = false;
+          _errorMessage = null;
         });
       }
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _isLoading = false;
+          _errorMessage = e.toString().replaceFirst('Exception: ', '');
+        });
       }
     }
   }
@@ -292,168 +329,6 @@ class HotspotScreenState extends State<HotspotScreen> {
           ),
         );
       },
-    );
-  }
-
-  // --- M3 Batch Voucher Generator Modal ---
-  void _showBatchGenerateModal() {
-    final prefixCtrl = TextEditingController(text: 'fn-');
-    final countCtrl = TextEditingController(text: '10');
-    final limitCtrl = TextEditingController(text: '3h');
-    final commentCtrl = TextEditingController(text: 'Batch ${DateTime.now().day}/${DateTime.now().month}');
-    String selectedProfile = _profiles.isNotEmpty ? _profiles.first.name : 'default';
-    int codeLength = 6;
-    bool isGenerating = false;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      useSafeArea: true,
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.85,
-      ),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setModalState) {
-          final theme = Theme.of(ctx);
-          final colorScheme = theme.colorScheme;
-
-          return Padding(
-            padding: EdgeInsets.only(
-              left: 24,
-              right: 24,
-              top: 8,
-              bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
-            ),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Generate Voucher Massal',
-                        style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-                      ),
-                      IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-
-                  Row(
-                    children: [
-                      Expanded(
-                        flex: 2,
-                        child: TextField(
-                          controller: prefixCtrl,
-                          decoration: const InputDecoration(labelText: 'Prefix Kode', hintText: 'fn-'),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        flex: 2,
-                        child: TextField(
-                          controller: countCtrl,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(labelText: 'Jumlah Voucher', hintText: '10'),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-
-                  DropdownButtonFormField<String>(
-                    initialValue: _profiles.any((p) => p.name == selectedProfile) ? selectedProfile : null,
-                    decoration: const InputDecoration(
-                      labelText: 'Paket / Profil Hotspot',
-                      prefixIcon: Icon(Icons.speed),
-                    ),
-                    items: _profiles.map((p) => DropdownMenuItem(value: p.name, child: Text(p.name))).toList(),
-                    onChanged: (val) {
-                      if (val != null) setModalState(() => selectedProfile = val);
-                    },
-                  ),
-                  const SizedBox(height: 14),
-
-                  TextField(
-                    controller: limitCtrl,
-                    style: FNetTheme.monoStyle(fontSize: 13),
-                    decoration: const InputDecoration(
-                      labelText: 'Limit Waktu Uptime',
-                      hintText: '3h, 1d, 30m',
-                      prefixIcon: Icon(Icons.timer_outlined),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-
-                  TextField(
-                    controller: commentCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Catatan Batch / Penjualan',
-                      hintText: 'Event Warung Kopi / Batch 1',
-                      prefixIcon: Icon(Icons.notes_outlined),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  FilledButton(
-                    onPressed: isGenerating
-                        ? null
-                        : () async {
-                            final count = int.tryParse(countCtrl.text.trim()) ?? 0;
-                            if (count <= 0 || count > 100) {
-                              ToastBanner.show(ctx, message: 'Jumlah voucher harus antara 1 sampai 100.', type: ToastType.error);
-                              return;
-                            }
-
-                            setModalState(() => isGenerating = true);
-
-                            final vouchers = HotspotUtils.generateBatchVouchers(
-                              prefix: prefixCtrl.text.trim(),
-                              count: count,
-                              codeLength: codeLength,
-                              profile: selectedProfile,
-                              limitUptime: limitCtrl.text.trim(),
-                              comment: commentCtrl.text.trim(),
-                            );
-
-                            int successCount = 0;
-                            for (final payload in vouchers) {
-                              try {
-                                await MikrotikApiService.instance.createHotspotUser(widget.profile, payload);
-                                successCount++;
-                              } catch (_) {}
-                            }
-
-                            if (ctx.mounted) Navigator.pop(ctx);
-                            refreshData();
-                            if (mounted) {
-                              ToastBanner.show(
-                                context,
-                                message: 'Berhasil membuat $successCount dari $count voucher massal.',
-                                type: ToastType.success,
-                              );
-                            }
-                          },
-                    child: isGenerating
-                        ? SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: colorScheme.onPrimary),
-                          )
-                        : const Text('Generate Voucher Sekarang'),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
     );
   }
 
@@ -777,91 +652,142 @@ class HotspotScreenState extends State<HotspotScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final bool hasError = _errorMessage != null;
 
-    return Scaffold(
-      body: Column(
-        children: [
-          // Official Material 3 SegmentedButton for Sub-Tabs
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: SizedBox(
-              width: double.infinity,
-              child: SegmentedButton<int>(
-                segments: [
-                  ButtonSegment<int>(
-                    value: 0,
-                    icon: const Icon(Icons.confirmation_number_outlined, size: 18),
-                    label: Text('Voucher (${_users.length})'),
-                  ),
-                  ButtonSegment<int>(
-                    value: 1,
-                    icon: const Icon(Icons.devices, size: 18),
-                    label: Text('Aktif (${_activeSessions.length})'),
-                  ),
-                  ButtonSegment<int>(
-                    value: 2,
-                    icon: const Icon(Icons.speed, size: 18),
-                    label: Text('Paket (${_profiles.length})'),
-                  ),
-                ],
-                selected: {_selectedSubTab},
-                onSelectionChanged: (set) => setState(() => _selectedSubTab = set.first),
+    if (hasError) {
+      return Scaffold(
+        body: _buildErrorEmptyState(theme, colorScheme),
+      );
+    }
+
+    if (_isLoading) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer,
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: LoadingIndicatorM3E(
+                  size: 36,
+                  color: colorScheme.primary,
+                ),
               ),
-            ),
+              const SizedBox(height: 16),
+              Text(
+                'Memuat data Hotspot...',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
           ),
+        ),
+      );
+    }
 
-          // Content body
-          Expanded(
-            child: _isLoading
-                ? Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        CircularProgressIndicator(color: colorScheme.primary),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Memuat data Hotspot...',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : RefreshIndicator(
+    return DefaultTabController(
+      length: 3,
+      initialIndex: _selectedSubTab,
+      child: Builder(
+        builder: (ctx) {
+          return Scaffold(
+            body: Column(
+              children: [
+                // Official Material 3 Secondary TabBar (Menggantikan SegmentedButton)
+                TabBar(
+                  onTap: (index) => setState(() => _selectedSubTab = index),
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  labelColor: colorScheme.primary,
+                  unselectedLabelColor: colorScheme.onSurfaceVariant,
+                  tabs: [
+                    Tab(text: 'Voucher (${_users.length})'),
+                    Tab(text: 'Aktif (${_activeSessions.length})'),
+                    Tab(text: 'Paket (${_profiles.length})'),
+                  ],
+                ),
+
+                // Content body
+                Expanded(
+                  child: RefreshIndicator(
                     onRefresh: refreshData,
                     color: colorScheme.primary,
                     child: _buildSubTabContent(),
                   ),
-          ),
-        ],
-      ),
-      floatingActionButton: _selectedSubTab == 0
-          ? Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                FloatingActionButton.extended(
-                  heroTag: 'batchGen',
-                  onPressed: _showBatchGenerateModal,
-                  icon: const Icon(Icons.auto_mode),
-                  label: const Text('Batch'),
-                ),
-                const SizedBox(width: 10),
-                FloatingActionButton(
-                  heroTag: 'singleUser',
-                  onPressed: () => _showSingleVoucherModal(),
-                  child: const Icon(Icons.add),
                 ),
               ],
-            )
-          : _selectedSubTab == 2
-              ? FloatingActionButton.extended(
-                  heroTag: 'addHotspotProfile',
-                  onPressed: _showAddHotspotProfileModal,
-                  icon: const Icon(Icons.add),
-                  label: const Text('Tambah Paket'),
-                )
-              : null,
+            ),
+            floatingActionButton: _selectedSubTab == 0
+                ? FloatingActionButton(
+                    heroTag: 'singleUser',
+                    onPressed: () => _showSingleVoucherModal(),
+                    tooltip: 'Tambah Voucher',
+                    child: const Icon(Icons.add),
+                  )
+                : _selectedSubTab == 2
+                    ? FloatingActionButton(
+                        heroTag: 'addHotspotProfile',
+                        onPressed: _showAddHotspotProfileModal,
+                        tooltip: 'Tambah Paket',
+                        child: const Icon(Icons.add),
+                      )
+                    : null,
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildErrorEmptyState(ThemeData theme, ColorScheme colorScheme) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: colorScheme.errorContainer.withValues(alpha: 0.4),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.cloud_off_rounded,
+                size: 32,
+                color: colorScheme.error,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Gagal Menghubungi Router',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _errorMessage ?? 'Terjadi kesalahan saat memuat data Hotspot dari router.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 20),
+            FilledButton.tonalIcon(
+              onPressed: refreshData,
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: const Text('Coba Lagi'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -883,6 +809,16 @@ class HotspotScreenState extends State<HotspotScreen> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
+    final totalCount = _users.length;
+    final activeCount = _users.where((u) {
+      final exp = HotspotUtils.calculateHotspotUserExpiry(u, _profiles);
+      return exp.status == HotspotStatus.active || exp.status == HotspotStatus.expiringSoon;
+    }).length;
+    final waitingCount = _users.where((u) {
+      final exp = HotspotUtils.calculateHotspotUserExpiry(u, _profiles);
+      return exp.status == HotspotStatus.unused;
+    }).length;
+
     final filtered = _users.where((u) {
       if (_searchQuery.isNotEmpty) {
         final q = _searchQuery.toLowerCase();
@@ -892,12 +828,8 @@ class HotspotScreenState extends State<HotspotScreen> {
       }
       final exp = HotspotUtils.calculateHotspotUserExpiry(u, _profiles);
       if (_userFilter == 'active') {
-        return exp.status == HotspotStatus.active;
-      } else if (_userFilter == 'expiringSoon') {
-        return exp.status == HotspotStatus.expiringSoon;
-      } else if (_userFilter == 'expired') {
-        return exp.status == HotspotStatus.expired;
-      } else if (_userFilter == 'unused') {
+        return exp.status == HotspotStatus.active || exp.status == HotspotStatus.expiringSoon;
+      } else if (_userFilter == 'waiting' || _userFilter == 'unused') {
         return exp.status == HotspotStatus.unused;
       }
       return true;
@@ -909,38 +841,34 @@ class HotspotScreenState extends State<HotspotScreen> {
       controller: _voucherScrollController,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       children: [
-        // Official M3 SearchBar
-        SearchBar(
-          hintText: 'Cari kode voucher / catatan...',
-          leading: const Icon(Icons.search),
-          elevation: const WidgetStatePropertyAll(0),
-          backgroundColor: WidgetStatePropertyAll(colorScheme.surfaceContainerLowest),
-          side: WidgetStatePropertyAll(BorderSide(color: colorScheme.outlineVariant)),
-          shape: WidgetStatePropertyAll(
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-          onChanged: (val) {
-            setState(() {
-              _searchQuery = val;
-              _visibleVouchersCount = 25;
-            });
-          },
-        ),
-        const SizedBox(height: 12),
-
+        // M3 Status Filter Buttons on Top (Semua, Aktif, Menunggu)
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
             children: [
-              _buildFilterChip('all', 'Semua (${_users.length})'),
-              _buildFilterChip('active', 'Aktif'),
-              _buildFilterChip('expiringSoon', 'Segera Habis'),
-              _buildFilterChip('expired', 'Kadaluarsa'),
-              _buildFilterChip('unused', 'Belum Dipakai'),
+              _buildFilterButton('all', 'Semua', totalCount, Icons.list_alt, colorScheme),
+              const SizedBox(width: 8),
+              _buildFilterButton('active', 'Aktif', activeCount, Icons.check_circle_outline, colorScheme),
+              const SizedBox(width: 8),
+              _buildFilterButton('waiting', 'Menunggu', waitingCount, Icons.hourglass_empty_outlined, colorScheme),
             ],
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
+
+        // Active search indicator (if searched from AppBar)
+        if (_searchQuery.isNotEmpty) ...[
+          Row(
+            children: [
+              InputChip(
+                avatar: const Icon(Icons.search, size: 16),
+                label: Text('Pencarian: "$_searchQuery"'),
+                onDeleted: () => setSearchQuery(''),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+        ],
 
         if (filtered.isEmpty)
           Center(
@@ -1071,9 +999,11 @@ class HotspotScreenState extends State<HotspotScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      width: 18,
+                      height: 18,
+                      child: LoadingIndicatorM3E(
+                        size: 18,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Text(
@@ -1090,21 +1020,39 @@ class HotspotScreenState extends State<HotspotScreen> {
     );
   }
 
-  Widget _buildFilterChip(String key, String label) {
+  Widget _buildFilterButton(String key, String label, int count, IconData icon, ColorScheme colorScheme) {
     final isSelected = _userFilter == key;
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: FilterChip(
-        selected: isSelected,
-        label: Text(label),
-        onSelected: (_) {
+    if (isSelected) {
+      return FilledButton.tonalIcon(
+        onPressed: () {
           setState(() {
             _userFilter = key;
             _visibleVouchersCount = 25;
           });
         },
-      ),
-    );
+        icon: Icon(icon, size: 16),
+        label: Text('$label ($count)'),
+        style: FilledButton.styleFrom(
+          visualDensity: VisualDensity.compact,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        ),
+      );
+    } else {
+      return OutlinedButton.icon(
+        onPressed: () {
+          setState(() {
+            _userFilter = key;
+            _visibleVouchersCount = 25;
+          });
+        },
+        icon: Icon(icon, size: 16),
+        label: Text('$label ($count)'),
+        style: OutlinedButton.styleFrom(
+          visualDensity: VisualDensity.compact,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        ),
+      );
+    }
   }
 
   // --- TAB 1: Hotspot Active Sessions ---
@@ -1128,23 +1076,18 @@ class HotspotScreenState extends State<HotspotScreen> {
       controller: _activeScrollController,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       children: [
-        SearchBar(
-          hintText: 'Cari user / IP / MAC aktif...',
-          leading: const Icon(Icons.search),
-          elevation: const WidgetStatePropertyAll(0),
-          backgroundColor: WidgetStatePropertyAll(colorScheme.surfaceContainerLowest),
-          side: WidgetStatePropertyAll(BorderSide(color: colorScheme.outlineVariant)),
-          shape: WidgetStatePropertyAll(
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        if (_activeSearchQuery.isNotEmpty) ...[
+          Row(
+            children: [
+              InputChip(
+                avatar: const Icon(Icons.search, size: 16),
+                label: Text('Pencarian: "$_activeSearchQuery"'),
+                onDeleted: () => setSearchQuery(''),
+              ),
+            ],
           ),
-          onChanged: (val) {
-            setState(() {
-              _activeSearchQuery = val;
-              _visibleActiveCount = 25;
-            });
-          },
-        ),
-        const SizedBox(height: 12),
+          const SizedBox(height: 12),
+        ],
         if (filtered.isEmpty)
           Center(
             child: Padding(
@@ -1188,9 +1131,11 @@ class HotspotScreenState extends State<HotspotScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      width: 18,
+                      height: 18,
+                      child: LoadingIndicatorM3E(
+                        size: 18,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Text(
@@ -1228,23 +1173,18 @@ class HotspotScreenState extends State<HotspotScreen> {
       controller: _profileScrollController,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       children: [
-        SearchBar(
-          hintText: 'Cari nama paket profil...',
-          leading: const Icon(Icons.search),
-          elevation: const WidgetStatePropertyAll(0),
-          backgroundColor: WidgetStatePropertyAll(colorScheme.surfaceContainerLowest),
-          side: WidgetStatePropertyAll(BorderSide(color: colorScheme.outlineVariant)),
-          shape: WidgetStatePropertyAll(
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        if (_profileSearchQuery.isNotEmpty) ...[
+          Row(
+            children: [
+              InputChip(
+                avatar: const Icon(Icons.search, size: 16),
+                label: Text('Pencarian: "$_profileSearchQuery"'),
+                onDeleted: () => setSearchQuery(''),
+              ),
+            ],
           ),
-          onChanged: (val) {
-            setState(() {
-              _profileSearchQuery = val;
-              _visibleProfilesCount = 25;
-            });
-          },
-        ),
-        const SizedBox(height: 12),
+          const SizedBox(height: 12),
+        ],
         if (filtered.isEmpty)
           Center(
             child: Padding(
@@ -1294,9 +1234,11 @@ class HotspotScreenState extends State<HotspotScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      width: 18,
+                      height: 18,
+                      child: LoadingIndicatorM3E(
+                        size: 18,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Text(

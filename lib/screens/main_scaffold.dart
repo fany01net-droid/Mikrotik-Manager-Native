@@ -10,6 +10,7 @@ import 'dhcp_screen.dart';
 import 'hotspot_screen.dart';
 import 'pppoe_screen.dart';
 import 'settings_screen.dart';
+import '../widgets/loading_indicator_m3e.dart';
 
 class MainScaffold extends StatefulWidget {
   final bool isDark;
@@ -130,7 +131,21 @@ class _MainScaffoldState extends State<MainScaffold> {
 
     if (_isLoadingProfiles) {
       return Scaffold(
-        body: Center(child: CircularProgressIndicator(color: colorScheme.primary)),
+        body: Center(
+          child: Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: colorScheme.primaryContainer,
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: LoadingIndicatorM3E(
+              size: 36,
+              color: colorScheme.primary,
+            ),
+          ),
+        ),
       );
     }
 

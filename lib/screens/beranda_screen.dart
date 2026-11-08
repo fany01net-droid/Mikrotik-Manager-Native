@@ -6,6 +6,7 @@ import '../theme/fnet_theme.dart';
 import '../utils/format_utils.dart';
 import '../widgets/gauge_widget.dart';
 import '../widgets/live_traffic_chart.dart';
+import '../widgets/loading_indicator_m3e.dart';
 import '../widgets/toast_banner.dart';
 
 class BerandaScreen extends StatefulWidget {
@@ -211,10 +212,22 @@ class BerandaScreenState extends State<BerandaScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircularProgressIndicator(color: colorScheme.primary),
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer,
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: LoadingIndicatorM3E(
+                size: 36,
+                color: colorScheme.primary,
+              ),
+            ),
             const SizedBox(height: 16),
             Text(
-              'Memuat data ${widget.profile.name}...',
+              'Memuat data Dashboard...',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colorScheme.onSurfaceVariant,
               ),

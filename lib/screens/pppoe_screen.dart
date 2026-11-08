@@ -3,16 +3,19 @@ import '../models/mikrotik_models.dart';
 import '../services/mikrotik_api_service.dart';
 import '../theme/fnet_theme.dart';
 import '../utils/pppoe_utils.dart';
+import '../widgets/loading_indicator_m3e.dart';
 import '../widgets/toast_banner.dart';
 
 class PppoeScreen extends StatefulWidget {
   final RouterProfile profile;
   final Map<String, String>? initialSecretData;
+  final String searchQuery;
 
   const PppoeScreen({
     super.key,
     required this.profile,
     this.initialSecretData,
+    this.searchQuery = '',
   });
 
   @override
@@ -22,6 +25,7 @@ class PppoeScreen extends StatefulWidget {
 class PppoeScreenState extends State<PppoeScreen> {
   int _selectedSubTab = 0; // 0: Secrets, 1: Active, 2: Profiles
   bool _isLoading = true;
+  String? _errorMessage;
 
   List<PppSecret> _secrets = [];
   List<PppActive> _activeSessions = [];
@@ -29,6 +33,7 @@ class PppoeScreenState extends State<PppoeScreen> {
 
   String _searchQuery = '';
   String _secretFilter = 'all';
+  final TextEditingController _searchController = TextEditingController();
 
   // Infinite Scroll Lazy Load Chunking (25 data per chunk)
   int _visibleSecretsCount = 25;
@@ -39,6 +44,7 @@ class PppoeScreenState extends State<PppoeScreen> {
   @override
   void initState() {
     super.initState();
+    _searchQuery = widget.searchQuery;
     _secretScrollController.addListener(_onSecretScroll);
     _activeScrollController.addListener(_onActiveScroll);
     refreshData();
@@ -56,17 +62,35 @@ class PppoeScreenState extends State<PppoeScreen> {
   @override
   void didUpdateWidget(covariant PppoeScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.searchQuery != widget.searchQuery) {
+      _searchQuery = widget.searchQuery;
+      _visibleSecretsCount = 25;
+      _visibleActiveCount = 25;
+    }
     if (oldWidget.profile.id != widget.profile.id ||
         oldWidget.profile.host != widget.profile.host ||
         oldWidget.profile.port != widget.profile.port) {
+      _errorMessage = null;
       _visibleSecretsCount = 25;
       _visibleActiveCount = 25;
+      _secrets = [];
+      _activeSessions = [];
+      _profiles = [];
       refreshData();
     }
   }
 
+  void setSearchQuery(String query) {
+    setState(() {
+      _searchQuery = query;
+      _visibleSecretsCount = 25;
+      _visibleActiveCount = 25;
+    });
+  }
+
   @override
   void dispose() {
+    _searchController.dispose();
     _secretScrollController.removeListener(_onSecretScroll);
     _activeScrollController.removeListener(_onActiveScroll);
     _secretScrollController.dispose();
@@ -97,7 +121,10 @@ class PppoeScreenState extends State<PppoeScreen> {
   }
 
   Future<void> refreshData() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
     try {
       final sFuture = MikrotikApiService.instance.getPppSecrets(widget.profile);
       final aFuture = MikrotikApiService.instance.getPppActive(widget.profile);
@@ -111,11 +138,15 @@ class PppoeScreenState extends State<PppoeScreen> {
           _activeSessions = results[1] as List<PppActive>;
           _profiles = results[2] as List<PppProfile>;
           _isLoading = false;
+          _errorMessage = null;
         });
       }
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _isLoading = false;
+          _errorMessage = e.toString().replaceFirst('Exception: ', '');
+        });
       }
     }
   }
@@ -597,78 +628,140 @@ class PppoeScreenState extends State<PppoeScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final bool hasError = _errorMessage != null;
 
-    return Scaffold(
-      body: Column(
-        children: [
-          // M3 Segmented Button Sub Tabs
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            child: SizedBox(
-              width: double.infinity,
-              child: SegmentedButton<int>(
-                segments: [
-                  ButtonSegment<int>(
-                    value: 0,
-                    icon: const Icon(Icons.vpn_key_outlined, size: 18),
-                    label: Text('Pelanggan (${_secrets.length})'),
-                  ),
-                  ButtonSegment<int>(
-                    value: 1,
-                    icon: const Icon(Icons.online_prediction, size: 18),
-                    label: Text('Aktif (${_activeSessions.length})'),
-                  ),
-                  ButtonSegment<int>(
-                    value: 2,
-                    icon: const Icon(Icons.speed, size: 18),
-                    label: Text('Paket (${_profiles.length})'),
-                  ),
-                ],
-                selected: {_selectedSubTab},
-                onSelectionChanged: (set) => setState(() => _selectedSubTab = set.first),
+    if (hasError) {
+      return Scaffold(
+        body: _buildErrorEmptyState(theme, colorScheme),
+      );
+    }
+
+    if (_isLoading) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer,
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: LoadingIndicatorM3E(
+                  size: 36,
+                  color: colorScheme.primary,
+                ),
               ),
-            ),
+              const SizedBox(height: 16),
+              Text(
+                'Memuat data PPPoE...',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
           ),
+        ),
+      );
+    }
 
-          // Content body
-          Expanded(
-            child: _isLoading
-                ? Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        CircularProgressIndicator(color: colorScheme.primary),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Memuat data PPPoE...',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : RefreshIndicator(
+    return DefaultTabController(
+      length: 3,
+      initialIndex: _selectedSubTab,
+      child: Builder(
+        builder: (ctx) {
+          return Scaffold(
+            body: Column(
+              children: [
+                // Official Material 3 Secondary TabBar (Menggantikan SegmentedButton)
+                TabBar(
+                  onTap: (index) => setState(() => _selectedSubTab = index),
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  labelColor: colorScheme.primary,
+                  unselectedLabelColor: colorScheme.onSurfaceVariant,
+                  tabs: [
+                    Tab(text: 'Pelanggan (${_secrets.length})'),
+                    Tab(text: 'Aktif (${_activeSessions.length})'),
+                    Tab(text: 'Paket (${_profiles.length})'),
+                  ],
+                ),
+
+                // Content body
+                Expanded(
+                  child: RefreshIndicator(
                     onRefresh: refreshData,
                     color: colorScheme.primary,
                     child: _buildSubTabContent(),
                   ),
-          ),
-        ],
+                ),
+              ],
+            ),
+            floatingActionButton: _selectedSubTab == 0
+                ? FloatingActionButton(
+                    onPressed: () => _showSecretDialog(),
+                    tooltip: 'Tambah Pelanggan',
+                    child: const Icon(Icons.add),
+                  )
+                : _selectedSubTab == 2
+                    ? FloatingActionButton(
+                        onPressed: _showAddProfileDialog,
+                        tooltip: 'Tambah Paket',
+                        child: const Icon(Icons.add),
+                      )
+                    : null,
+          );
+        },
       ),
-      floatingActionButton: _selectedSubTab == 0
-          ? FloatingActionButton.extended(
-              onPressed: () => _showSecretDialog(),
-              icon: const Icon(Icons.add),
-              label: const Text('Tambah Pelanggan'),
-            )
-          : _selectedSubTab == 2
-              ? FloatingActionButton.extended(
-                  onPressed: _showAddProfileDialog,
-                  icon: const Icon(Icons.add),
-                  label: const Text('Tambah Paket'),
-                )
-              : null,
+    );
+  }
+
+  Widget _buildErrorEmptyState(ThemeData theme, ColorScheme colorScheme) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: colorScheme.errorContainer.withValues(alpha: 0.4),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.cloud_off_rounded,
+                size: 32,
+                color: colorScheme.error,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Gagal Menghubungi Router',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _errorMessage ?? 'Terjadi kesalahan saat memuat data PPPoE dari router.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 20),
+            FilledButton.tonalIcon(
+              onPressed: refreshData,
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: const Text('Coba Lagi'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -689,6 +782,21 @@ class PppoeScreenState extends State<PppoeScreen> {
   Widget _buildSecretsTab() {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+
+    final totalCount = _secrets.length;
+    final activeCount = _secrets.where((s) {
+      final p = PppoeUtils.parseExpiryFromComment(s.comment);
+      return !s.disabled && p.status == ExpiryStatus.active;
+    }).length;
+    final expiringCount = _secrets.where((s) {
+      final p = PppoeUtils.parseExpiryFromComment(s.comment);
+      return !s.disabled && p.status == ExpiryStatus.expiringSoon;
+    }).length;
+    final expiredCount = _secrets.where((s) {
+      final p = PppoeUtils.parseExpiryFromComment(s.comment);
+      return !s.disabled && p.status == ExpiryStatus.expired;
+    }).length;
+    final isolatedCount = _secrets.where((s) => s.disabled).length;
 
     final filtered = _secrets.where((s) {
       if (_searchQuery.isNotEmpty) {
@@ -716,39 +824,38 @@ class PppoeScreenState extends State<PppoeScreen> {
       controller: _secretScrollController,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       children: [
-        // Official M3 SearchBar
-        SearchBar(
-          hintText: 'Cari pelanggan PPPoE / catatan...',
-          leading: const Icon(Icons.search),
-          elevation: const WidgetStatePropertyAll(0),
-          backgroundColor: WidgetStatePropertyAll(colorScheme.surfaceContainerLowest),
-          side: WidgetStatePropertyAll(BorderSide(color: colorScheme.outlineVariant)),
-          shape: WidgetStatePropertyAll(
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-          onChanged: (val) {
-            setState(() {
-              _searchQuery = val;
-              _visibleSecretsCount = 25;
-            });
-          },
-        ),
-        const SizedBox(height: 12),
-
-        // M3 Filter Chips Row
+        // M3 Status Filter Buttons on Top
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
             children: [
-              _buildFilterChip('all', 'Semua (${_secrets.length})'),
-              _buildFilterChip('active', 'Aktif'),
-              _buildFilterChip('expiringSoon', 'Segera Habis'),
-              _buildFilterChip('expired', 'Kadaluarsa'),
-              _buildFilterChip('isolated', 'Terisolir'),
+              _buildFilterButton('all', 'Semua', totalCount, Icons.list_alt, colorScheme),
+              const SizedBox(width: 8),
+              _buildFilterButton('active', 'Aktif', activeCount, Icons.check_circle_outline, colorScheme),
+              const SizedBox(width: 8),
+              _buildFilterButton('expiringSoon', 'Segera Habis', expiringCount, Icons.schedule, colorScheme),
+              const SizedBox(width: 8),
+              _buildFilterButton('expired', 'Kadaluarsa', expiredCount, Icons.cancel_outlined, colorScheme),
+              const SizedBox(width: 8),
+              _buildFilterButton('isolated', 'Terisolir', isolatedCount, Icons.block_outlined, colorScheme),
             ],
           ),
         ),
-        const SizedBox(height: 14),
+
+        // Active search indicator (if searched from AppBar)
+        if (_searchQuery.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              InputChip(
+                avatar: const Icon(Icons.search, size: 16),
+                label: Text('Pencarian: "$_searchQuery"'),
+                onDeleted: () => setSearchQuery(''),
+              ),
+            ],
+          ),
+        ],
+        const SizedBox(height: 12),
 
         if (filtered.isEmpty)
           Center(
@@ -911,9 +1018,11 @@ class PppoeScreenState extends State<PppoeScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      width: 18,
+                      height: 18,
+                      child: LoadingIndicatorM3E(
+                        size: 18,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Text(
@@ -930,21 +1039,39 @@ class PppoeScreenState extends State<PppoeScreen> {
     );
   }
 
-  Widget _buildFilterChip(String key, String label) {
+  Widget _buildFilterButton(String key, String label, int count, IconData icon, ColorScheme colorScheme) {
     final isSelected = _secretFilter == key;
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: FilterChip(
-        selected: isSelected,
-        label: Text(label),
-        onSelected: (_) {
+    if (isSelected) {
+      return FilledButton.tonalIcon(
+        onPressed: () {
           setState(() {
             _secretFilter = key;
             _visibleSecretsCount = 25;
           });
         },
-      ),
-    );
+        icon: Icon(icon, size: 16),
+        label: Text('$label ($count)'),
+        style: FilledButton.styleFrom(
+          visualDensity: VisualDensity.compact,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        ),
+      );
+    } else {
+      return OutlinedButton.icon(
+        onPressed: () {
+          setState(() {
+            _secretFilter = key;
+            _visibleSecretsCount = 25;
+          });
+        },
+        icon: Icon(icon, size: 16),
+        label: Text('$label ($count)'),
+        style: OutlinedButton.styleFrom(
+          visualDensity: VisualDensity.compact,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        ),
+      );
+    }
   }
 
   // --- TAB 1: PPPoE Active Sessions ---
@@ -976,9 +1103,11 @@ class PppoeScreenState extends State<PppoeScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    width: 18,
+                    height: 18,
+                    child: LoadingIndicatorM3E(
+                      size: 18,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Text(

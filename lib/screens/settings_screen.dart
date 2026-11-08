@@ -45,20 +45,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _testingMap[profile.id] = false;
         _testResults[profile.id] = result;
       });
-
-      if (result.success) {
-        ToastBanner.show(
-          context,
-          message: 'Terhubung ke ${profile.name}! Latensi: ${result.durationMs}ms',
-          type: ToastType.success,
-        );
-      } else {
-        ToastBanner.show(
-          context,
-          message: 'Koneksi gagal: ${result.error}',
-          type: ToastType.error,
-        );
-      }
     }
   }
 
@@ -427,6 +413,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     Divider(height: 1, color: colorScheme.outlineVariant),
                     const SizedBox(height: 8),
 
+                    if (isTesting || (testRes != null && !testRes.success)) ...[
+                      const SizedBox(height: 8),
+                      if (isTesting) ...[
+                        LinearProgressIndicator(
+                          borderRadius: BorderRadius.circular(4),
+                          color: colorScheme.primary,
+                          backgroundColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                        ),
+                        const SizedBox(height: 6),
+                      ],
+                      Text(
+                        isTesting
+                            ? 'Menguji koneksi ke router...'
+                            : 'Koneksi gagal: ${testRes!.error ?? "Tidak ada respon"}',
+                        style: TextStyle(
+                          color: isTesting ? colorScheme.primary : colorScheme.error,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                    ],
+
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -435,9 +444,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           style: OutlinedButton.styleFrom(
                             minimumSize: const Size(48, 38),
                           ),
-                          icon: isTesting
-                              ? SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: colorScheme.primary))
-                              : const Icon(Icons.network_check_outlined, size: 16),
+                          icon: const Icon(Icons.network_check_outlined, size: 16),
                           label: Text(
                             isTesting ? 'Menguji...' : 'Uji Koneksi',
                             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),

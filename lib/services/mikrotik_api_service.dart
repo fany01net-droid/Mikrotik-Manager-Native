@@ -220,14 +220,12 @@ class MikrotikApiService {
 
   // DHCP Leases
   Future<List<DhcpLease>> getDhcpLeases(RouterProfile profile) async {
-    try {
-      final raw = await request(profile, '/rest/ip/dhcp-server/lease');
-      if (raw is List) {
-        return raw.map((item) => DhcpLease.fromJson(item as Map<String, dynamic>)).toList();
-      } else if (raw is Map<String, dynamic>) {
-        return [DhcpLease.fromJson(raw)];
-      }
-    } catch (_) {}
+    final raw = await request(profile, '/rest/ip/dhcp-server/lease');
+    if (raw is List) {
+      return raw.map((item) => DhcpLease.fromJson(item as Map<String, dynamic>)).toList();
+    } else if (raw is Map<String, dynamic>) {
+      return [DhcpLease.fromJson(raw)];
+    }
     return [];
   }
 
@@ -267,14 +265,12 @@ class MikrotikApiService {
 
   // PPPoE Secrets & Active
   Future<List<PppSecret>> getPppSecrets(RouterProfile profile) async {
-    try {
-      final raw = await request(profile, '/rest/ppp/secret');
-      if (raw is List) {
-        return raw.map((item) => PppSecret.fromJson(item as Map<String, dynamic>)).toList();
-      } else if (raw is Map<String, dynamic>) {
-        return [PppSecret.fromJson(raw)];
-      }
-    } catch (_) {}
+    final raw = await request(profile, '/rest/ppp/secret');
+    if (raw is List) {
+      return raw.map((item) => PppSecret.fromJson(item as Map<String, dynamic>)).toList();
+    } else if (raw is Map<String, dynamic>) {
+      return [PppSecret.fromJson(raw)];
+    }
     return [];
   }
 
@@ -310,14 +306,12 @@ class MikrotikApiService {
   }
 
   Future<List<PppActive>> getPppActive(RouterProfile profile) async {
-    try {
-      final raw = await request(profile, '/rest/ppp/active');
-      if (raw is List) {
-        return raw.map((item) => PppActive.fromJson(item as Map<String, dynamic>)).toList();
-      } else if (raw is Map<String, dynamic>) {
-        return [PppActive.fromJson(raw)];
-      }
-    } catch (_) {}
+    final raw = await request(profile, '/rest/ppp/active');
+    if (raw is List) {
+      return raw.map((item) => PppActive.fromJson(item as Map<String, dynamic>)).toList();
+    } else if (raw is Map<String, dynamic>) {
+      return [PppActive.fromJson(raw)];
+    }
     return [];
   }
 
@@ -330,14 +324,12 @@ class MikrotikApiService {
   }
 
   Future<List<PppProfile>> getPppProfiles(RouterProfile profile) async {
-    try {
-      final raw = await request(profile, '/rest/ppp/profile');
-      if (raw is List) {
-        return raw.map((item) => PppProfile.fromJson(item as Map<String, dynamic>)).toList();
-      } else if (raw is Map<String, dynamic>) {
-        return [PppProfile.fromJson(raw)];
-      }
-    } catch (_) {}
+    final raw = await request(profile, '/rest/ppp/profile');
+    if (raw is List) {
+      return raw.map((item) => PppProfile.fromJson(item as Map<String, dynamic>)).toList();
+    } else if (raw is Map<String, dynamic>) {
+      return [PppProfile.fromJson(raw)];
+    }
     return [];
   }
 
@@ -376,14 +368,12 @@ class MikrotikApiService {
 
   // Hotspot
   Future<List<HotspotUser>> getHotspotUsers(RouterProfile profile) async {
-    try {
-      final raw = await request(profile, '/rest/ip/hotspot/user');
-      if (raw is List) {
-        return raw.map((item) => HotspotUser.fromJson(item as Map<String, dynamic>)).toList();
-      } else if (raw is Map<String, dynamic>) {
-        return [HotspotUser.fromJson(raw)];
-      }
-    } catch (_) {}
+    final raw = await request(profile, '/rest/ip/hotspot/user');
+    if (raw is List) {
+      return raw.map((item) => HotspotUser.fromJson(item as Map<String, dynamic>)).toList();
+    } else if (raw is Map<String, dynamic>) {
+      return [HotspotUser.fromJson(raw)];
+    }
     return [];
   }
 
@@ -427,14 +417,12 @@ class MikrotikApiService {
   }
 
   Future<List<HotspotActive>> getHotspotActive(RouterProfile profile) async {
-    try {
-      final raw = await request(profile, '/rest/ip/hotspot/active');
-      if (raw is List) {
-        return raw.map((item) => HotspotActive.fromJson(item as Map<String, dynamic>)).toList();
-      } else if (raw is Map<String, dynamic>) {
-        return [HotspotActive.fromJson(raw)];
-      }
-    } catch (_) {}
+    final raw = await request(profile, '/rest/ip/hotspot/active');
+    if (raw is List) {
+      return raw.map((item) => HotspotActive.fromJson(item as Map<String, dynamic>)).toList();
+    } else if (raw is Map<String, dynamic>) {
+      return [HotspotActive.fromJson(raw)];
+    }
     return [];
   }
 
@@ -447,14 +435,12 @@ class MikrotikApiService {
   }
 
   Future<List<HotspotProfile>> getHotspotProfiles(RouterProfile profile) async {
-    try {
-      final raw = await request(profile, '/rest/ip/hotspot/user/profile');
-      if (raw is List) {
-        return raw.map((item) => HotspotProfile.fromJson(item as Map<String, dynamic>)).toList();
-      } else if (raw is Map<String, dynamic>) {
-        return [HotspotProfile.fromJson(raw)];
-      }
-    } catch (_) {}
+    final raw = await request(profile, '/rest/ip/hotspot/user/profile');
+    if (raw is List) {
+      return raw.map((item) => HotspotProfile.fromJson(item as Map<String, dynamic>)).toList();
+    } else if (raw is Map<String, dynamic>) {
+      return [HotspotProfile.fromJson(raw)];
+    }
     return [];
   }
 
