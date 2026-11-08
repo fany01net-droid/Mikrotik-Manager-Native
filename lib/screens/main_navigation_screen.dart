@@ -105,6 +105,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         return BerandaScreen(
           key: _berandaKey,
           profile: active,
+          onNavigateTab: (index) {
+            setState(() {
+              _currentPageIndex = index;
+            });
+          },
         );
       case 1:
         final prefill = _prefilledPppoeData;
@@ -248,6 +253,65 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                     }
                   },
                 ),
+                if (_currentPageIndex == 0)
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert),
+                    tooltip: 'Opsi Dashboard',
+                    onSelected: (val) {
+                      if (val == 'edit') {
+                        _berandaKey.currentState?.openCustomizeSheet();
+                      } else if (val == 'show_all') {
+                        _berandaKey.currentState?.showAllWidgets();
+                      } else if (val == 'test_conn') {
+                        _berandaKey.currentState?.testRouterConnection();
+                      } else if (val == 'reset') {
+                        _berandaKey.currentState?.resetAllDashboardSettings();
+                      }
+                    },
+                    itemBuilder: (ctx) => [
+                      const PopupMenuItem(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            Icon(Icons.dashboard_customize_outlined, size: 20),
+                            SizedBox(width: 10),
+                            Text('Edit Tata Letak & Widget'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'show_all',
+                        child: Row(
+                          children: [
+                            Icon(Icons.visibility_outlined, size: 20),
+                            SizedBox(width: 10),
+                            Text('Tampilkan Semua Widget'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'test_conn',
+                        child: Row(
+                          children: [
+                            Icon(Icons.network_ping_rounded, size: 20),
+                            SizedBox(width: 10),
+                            Text('Uji Respon Koneksi'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuDivider(),
+                      const PopupMenuItem(
+                        value: 'reset',
+                        child: Row(
+                          children: [
+                            Icon(Icons.restart_alt_rounded, size: 20),
+                            SizedBox(width: 10),
+                            Text('Reset Tata Letak Default'),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 if (_currentPageIndex >= 1 && _currentPageIndex <= 3)
                   IconButton(
                     tooltip: 'Cari',

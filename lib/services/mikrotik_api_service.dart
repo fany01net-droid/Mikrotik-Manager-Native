@@ -67,8 +67,18 @@ class MikrotikApiService {
     dynamic body,
   }) async {
     final baseUrl = buildBaseUrl(profile);
-    final fullUrl = '$baseUrl${path.startsWith('/') ? path : '/$path'}';
-    final uri = Uri.parse(fullUrl);
+    final targetPath = path.startsWith('/') ? path : '/$path';
+    final targetUrl = '$baseUrl$targetPath';
+
+    final Uri uri;
+    if (kIsWeb) {
+      final origin = (Uri.base.hasAuthority && Uri.base.origin != 'null')
+          ? Uri.base.origin
+          : 'http://127.0.0.1:5173';
+      uri = Uri.parse('$origin/proxy?url=${Uri.encodeComponent(targetUrl)}');
+    } else {
+      uri = Uri.parse(targetUrl);
+    }
     final authHeader = getAuthHeader(profile);
     final timeout = Duration(seconds: profile.timeoutSeconds > 0 ? profile.timeoutSeconds : 8);
 

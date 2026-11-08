@@ -110,22 +110,29 @@ class SystemResource {
   });
 
   factory SystemResource.fromJson(Map<String, dynamic> json) {
+    int parseNum(dynamic val, [int fallback = 0]) {
+      if (val == null) return fallback;
+      if (val is num) return val.round();
+      final str = val.toString().replaceAll('%', '').trim();
+      return num.tryParse(str)?.round() ?? fallback;
+    }
+
     return SystemResource(
       uptime: json['uptime']?.toString() ?? '0s',
       version: json['version']?.toString() ?? '',
       buildTime: json['build-time']?.toString() ?? '',
-      freeMemory: int.tryParse(json['free-memory']?.toString() ?? '') ?? 0,
-      totalMemory: int.tryParse(json['total-memory']?.toString() ?? '') ?? 0,
+      freeMemory: parseNum(json['free-memory']),
+      totalMemory: parseNum(json['total-memory']),
       cpu: json['cpu']?.toString() ?? '',
-      cpuCount: int.tryParse(json['cpu-count']?.toString() ?? '') ?? 1,
-      cpuFrequency: int.tryParse(json['cpu-frequency']?.toString() ?? '') ?? 0,
-      cpuLoad: int.tryParse(json['cpu-load']?.toString() ?? '') ?? 0,
-      freeHddSpace: int.tryParse(json['free-hdd-space']?.toString() ?? '') ?? 0,
-      totalHddSpace: int.tryParse(json['total-hdd-space']?.toString() ?? '') ?? 0,
+      cpuCount: parseNum(json['cpu-count'], 1),
+      cpuFrequency: parseNum(json['cpu-frequency']),
+      cpuLoad: parseNum(json['cpu-load']),
+      freeHddSpace: parseNum(json['free-hdd-space']),
+      totalHddSpace: parseNum(json['total-hdd-space']),
       architectureName: json['architecture-name']?.toString() ?? '',
       boardName: json['board-name']?.toString() ?? '',
       platform: json['platform']?.toString() ?? '',
-      badBlocks: int.tryParse(json['bad-blocks']?.toString() ?? '') ?? 0,
+      badBlocks: parseNum(json['bad-blocks']),
     );
   }
 

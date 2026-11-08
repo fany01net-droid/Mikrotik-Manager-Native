@@ -38,16 +38,23 @@ class SmoothGauge extends StatelessWidget {
           child: Stack(
             alignment: Alignment.center,
             children: [
-              // M3 Determinate Circular Progress Indicator
+              // M3 Determinate Circular Progress Indicator with smooth animated arc
               SizedBox(
                 width: 84,
                 height: 84,
-                child: CircularProgressIndicator(
-                  value: clamped / 100.0,
-                  strokeWidth: 8,
-                  strokeCap: StrokeCap.round,
-                  backgroundColor: colorScheme.surfaceContainerHighest,
-                  valueColor: AlwaysStoppedAnimation<Color>(indicatorColor),
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween<double>(begin: 0.0, end: clamped / 100.0),
+                  duration: const Duration(milliseconds: 500),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, animValue, _) {
+                    return CircularProgressIndicator(
+                      value: animValue,
+                      strokeWidth: 8,
+                      strokeCap: StrokeCap.round,
+                      backgroundColor: colorScheme.surfaceContainerHighest,
+                      valueColor: AlwaysStoppedAnimation<Color>(indicatorColor),
+                    );
+                  },
                 ),
               ),
               Column(

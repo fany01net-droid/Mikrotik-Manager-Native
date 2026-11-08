@@ -220,6 +220,28 @@ class _MainScaffoldState extends State<MainScaffold> {
             icon: const Icon(Icons.refresh),
             tooltip: 'Segarkan Data',
           ),
+          if (_currentTabIndex == 0)
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert),
+              tooltip: 'Opsi Dashboard',
+              onSelected: (val) {
+                if (val == 'edit') {
+                  _berandaKey.currentState?.openCustomizeSheet();
+                }
+              },
+              itemBuilder: (ctx) => [
+                const PopupMenuItem(
+                  value: 'edit',
+                  child: Row(
+                    children: [
+                      Icon(Icons.dashboard_customize_outlined, size: 20),
+                      SizedBox(width: 10),
+                      Text('Edit Tata Letak & Widget'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           const SizedBox(width: 8),
         ],
       ),
