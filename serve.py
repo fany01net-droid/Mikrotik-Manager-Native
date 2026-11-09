@@ -90,7 +90,6 @@ class RelayHTTPRequestHandler(SimpleHTTPRequestHandler):
                 if 'system/resource' in target_url:
                     print(f"[DEBUG RESOURCE] {resp_data.decode('utf-8', errors='ignore')}", flush=True)
                 self.send_response(resp.status)
-                self.send_response(resp.status)
                 content_type = resp.headers.get('Content-Type', 'application/json')
                 self.send_header('Content-Type', content_type)
                 self.end_headers()

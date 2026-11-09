@@ -5,6 +5,7 @@ import '../theme/fnet_theme.dart';
 import '../utils/pppoe_utils.dart';
 import '../widgets/loading_indicator_m3e.dart';
 import '../widgets/toast_banner.dart';
+import '../widgets/user_card_m3.dart';
 
 class PppoeScreen extends StatefulWidget {
   final RouterProfile profile;
@@ -30,6 +31,15 @@ class PppoeScreenState extends State<PppoeScreen> {
   List<PppSecret> _secrets = [];
   List<PppActive> _activeSessions = [];
   List<PppProfile> _profiles = [];
+  List<IpPool> _ipPools = [];
+
+  bool _isSystemProfile(String name) {
+    final lower = name.toLowerCase().trim();
+    return lower == 'default' || lower == 'default-encryption';
+  }
+
+  List<PppProfile> get _filteredProfiles =>
+      _profiles.where((p) => !_isSystemProfile(p.name)).toList();
 
   String _searchQuery = '';
   String _secretFilter = 'all';
@@ -76,6 +86,7 @@ class PppoeScreenState extends State<PppoeScreen> {
       _secrets = [];
       _activeSessions = [];
       _profiles = [];
+      _ipPools = [];
       refreshData();
     }
   }
@@ -129,14 +140,16 @@ class PppoeScreenState extends State<PppoeScreen> {
       final sFuture = MikrotikApiService.instance.getPppSecrets(widget.profile);
       final aFuture = MikrotikApiService.instance.getPppActive(widget.profile);
       final pFuture = MikrotikApiService.instance.getPppProfiles(widget.profile);
+      final poolFuture = MikrotikApiService.instance.getIpPools(widget.profile);
 
-      final results = await Future.wait([sFuture, aFuture, pFuture]);
+      final results = await Future.wait([sFuture, aFuture, pFuture, poolFuture]);
 
       if (mounted) {
         setState(() {
           _secrets = results[0] as List<PppSecret>;
           _activeSessions = results[1] as List<PppActive>;
           _profiles = results[2] as List<PppProfile>;
+          _ipPools = results[3] as List<IpPool>;
           _isLoading = false;
           _errorMessage = null;
         });
@@ -237,7 +250,23 @@ class PppoeScreenState extends State<PppoeScreen> {
     final isEditing = editingSecret != null;
     final nameCtrl = TextEditingController(text: editingSecret?.name ?? initialName ?? '');
     final passCtrl = TextEditingController(text: editingSecret?.password ?? '');
-    final remoteIpCtrl = TextEditingController(text: editingSecret?.remoteAddress ?? initialIp ?? '');
+
+    // Cari sesi aktif yang cocok untuk mengambil IP
+    final currentTargetName = editingSecret?.name ?? initialName ?? '';
+    final activeSession = _activeSessions.cast<PppActive?>().firstWhere(
+      (a) => a?.name.toLowerCase() == currentTargetName.toLowerCase(),
+      orElse: () => null,
+    );
+
+    // Ambil IP: jika static sudah ada gunakan itu, jika kosong ambil dari sesi aktif
+    String defaultIp = editingSecret?.remoteAddress ?? '';
+    if (defaultIp.isEmpty && (activeSession?.address.isNotEmpty ?? false)) {
+      defaultIp = activeSession!.address;
+    } else if (defaultIp.isEmpty && initialIp != null && initialIp.isNotEmpty) {
+      defaultIp = initialIp;
+    }
+
+    final remoteIpCtrl = TextEditingController(text: defaultIp);
     final noteCtrl = TextEditingController(
       text: editingSecret != null
           ? PppoeUtils.parseExpiryFromComment(editingSecret.comment).customerName
@@ -248,7 +277,19 @@ class PppoeScreenState extends State<PppoeScreen> {
         ? PppoeUtils.parseExpiryFromComment(editingSecret.comment).expiryDate
         : DateTime.now().add(const Duration(days: 30));
 
-    String selectedProfile = editingSecret?.profile ?? (_profiles.isNotEmpty ? _profiles.first.name : 'default');
+    final availableProfiles = _filteredProfiles.toList();
+    if (editingSecret != null &&
+        _isSystemProfile(editingSecret.profile) &&
+        !availableProfiles.any((p) => p.name == editingSecret.profile)) {
+      final existing = _profiles.firstWhere(
+        (p) => p.name == editingSecret.profile,
+        orElse: () => PppProfile(id: '', name: editingSecret.profile),
+      );
+      availableProfiles.insert(0, existing);
+    }
+
+    String selectedProfile = editingSecret?.profile ??
+        (availableProfiles.isNotEmpty ? availableProfiles.first.name : (_profiles.isNotEmpty ? _profiles.first.name : 'default'));
     bool obscurePass = true;
 
     showModalBottomSheet(
@@ -322,12 +363,12 @@ class PppoeScreenState extends State<PppoeScreen> {
 
                   // Profile Dropdown
                   DropdownButtonFormField<String>(
-                    initialValue: _profiles.any((p) => p.name == selectedProfile) ? selectedProfile : null,
+                    initialValue: availableProfiles.any((p) => p.name == selectedProfile) ? selectedProfile : null,
                     decoration: const InputDecoration(
                       labelText: 'Paket Kecepatan (PPP Profile)',
                       prefixIcon: Icon(Icons.speed),
                     ),
-                    items: _profiles.map((p) {
+                    items: availableProfiles.map((p) {
                       return DropdownMenuItem(
                         value: p.name,
                         child: Text('${p.name} ${p.rateLimit.isNotEmpty ? "(${p.rateLimit})" : ""}'),
@@ -505,11 +546,32 @@ class PppoeScreenState extends State<PppoeScreen> {
     openCreateSecret(initialName: name, initialIp: ip, initialComment: comment);
   }
 
-  void _showAddProfileDialog() {
-    final nameCtrl = TextEditingController();
-    final rateCtrl = TextEditingController(text: '10M/10M');
-    final localCtrl = TextEditingController();
-    final remoteCtrl = TextEditingController();
+  void _showProfileDialog({PppProfile? editingProfile}) {
+    final isEditing = editingProfile != null;
+    final nameCtrl = TextEditingController(text: editingProfile?.name ?? '');
+    final rateCtrl = TextEditingController(text: editingProfile?.rateLimit ?? (isEditing ? '' : '10M/10M'));
+    final localCtrl = TextEditingController(text: editingProfile?.localAddress ?? '');
+
+    final initialRemote = editingProfile?.remoteAddress ?? '';
+    final poolNames = _ipPools.map((p) => p.name).toSet();
+    final bool isCustomInitial = initialRemote.isNotEmpty && !poolNames.contains(initialRemote);
+
+    String selectedRemotePool = isCustomInitial ? '__custom__' : initialRemote;
+    final customRemoteCtrl = TextEditingController(text: isCustomInitial ? initialRemote : '');
+
+    void Function(void Function())? modalSetter;
+    if (_ipPools.isEmpty) {
+      MikrotikApiService.instance.getIpPools(widget.profile).then((pools) {
+        if (mounted && pools.isNotEmpty) {
+          setState(() => _ipPools = pools);
+          modalSetter?.call(() {
+            if (initialRemote.isNotEmpty && pools.any((p) => p.name == initialRemote)) {
+              selectedRemotePool = initialRemote;
+            }
+          });
+        }
+      });
+    }
 
     showModalBottomSheet(
       context: context,
@@ -524,7 +586,46 @@ class PppoeScreenState extends State<PppoeScreen> {
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setModalState) {
+          modalSetter = setModalState;
           final theme = Theme.of(ctx);
+          final colorScheme = theme.colorScheme;
+
+          // Dropdown items untuk Remote Address / IP Pool
+          final List<DropdownMenuItem<String>> poolDropdownItems = [
+            DropdownMenuItem<String>(
+              value: '',
+              child: Text(
+                '-- Tidak Ada / Kosong --',
+                style: TextStyle(color: colorScheme.onSurfaceVariant),
+              ),
+            ),
+            ..._ipPools.map((pool) {
+              return DropdownMenuItem<String>(
+                value: pool.name,
+                child: Text(
+                  pool.ranges.isNotEmpty ? '${pool.name} (${pool.ranges})' : pool.name,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              );
+            }),
+            const DropdownMenuItem<String>(
+              value: '__custom__',
+              child: Row(
+                children: [
+                  Icon(Icons.edit_note, size: 18),
+                  SizedBox(width: 8),
+                  Text('Input Manual / Kustom...'),
+                ],
+              ),
+            ),
+          ];
+
+          // Validasi agar value selalu ada di items list
+          final validValues = poolDropdownItems.map((item) => item.value).toSet();
+          if (!validValues.contains(selectedRemotePool)) {
+            selectedRemotePool = selectedRemotePool.isNotEmpty ? '__custom__' : '';
+          }
+
           return Padding(
             padding: EdgeInsets.only(
               left: 24,
@@ -541,7 +642,7 @@ class PppoeScreenState extends State<PppoeScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Tambah Paket PPPoE',
+                        isEditing ? 'Edit Paket PPPoE' : 'Tambah Paket PPPoE',
                         style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
                       ),
                       IconButton(
@@ -577,14 +678,35 @@ class PppoeScreenState extends State<PppoeScreen> {
                     ),
                   ),
                   const SizedBox(height: 14),
-                  TextField(
-                    controller: remoteCtrl,
+                  DropdownButtonFormField<String>(
+                    key: ValueKey('pool_$selectedRemotePool'),
+                    initialValue: selectedRemotePool,
+                    isExpanded: true,
                     decoration: const InputDecoration(
-                      labelText: 'Remote Address / IP Pool (Opsional)',
-                      hintText: 'Contoh: pool-pppoe',
+                      labelText: 'Remote Address Pool (IP Pool)',
                       prefixIcon: Icon(Icons.lan_outlined),
+                      helperText: 'Pilih IP Pool MikroTik untuk pelanggan',
                     ),
+                    items: poolDropdownItems,
+                    onChanged: (val) {
+                      if (val != null) {
+                        setModalState(() {
+                          selectedRemotePool = val;
+                        });
+                      }
+                    },
                   ),
+                  if (selectedRemotePool == '__custom__') ...[
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: customRemoteCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'IP / Pool Kustom',
+                        hintText: 'Contoh: 192.168.10.10 atau pool-khusus',
+                        prefixIcon: Icon(Icons.edit_note),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 20),
                   FilledButton.icon(
                     onPressed: () async {
@@ -593,28 +715,89 @@ class PppoeScreenState extends State<PppoeScreen> {
                         ToastBanner.show(ctx, message: 'Nama profil wajib diisi.', type: ToastType.error);
                         return;
                       }
+
+                      final finalRemote = selectedRemotePool == '__custom__'
+                          ? customRemoteCtrl.text.trim()
+                          : selectedRemotePool.trim();
+
                       Navigator.pop(ctx);
                       try {
-                        final data = {
+                        final data = <String, dynamic>{
                           'name': name,
                           if (rateCtrl.text.trim().isNotEmpty) 'rate-limit': rateCtrl.text.trim(),
                           if (localCtrl.text.trim().isNotEmpty) 'local-address': localCtrl.text.trim(),
-                          if (remoteCtrl.text.trim().isNotEmpty) 'remote-address': remoteCtrl.text.trim(),
+                          if (finalRemote.isNotEmpty)
+                            'remote-address': finalRemote
+                          else if (isEditing)
+                            'remote-address': '',
                         };
-                        await MikrotikApiService.instance.createPppProfile(widget.profile, data);
-                        if (mounted) {
-                          ToastBanner.show(context, message: 'Paket PPPoE $name berhasil dibuat.', type: ToastType.success);
+                        if (isEditing) {
+                          await MikrotikApiService.instance.updatePppProfile(widget.profile, editingProfile.id, data);
+                          if (mounted) {
+                            ToastBanner.show(context, message: 'Paket PPPoE $name berhasil diperbarui.', type: ToastType.success);
+                          }
+                        } else {
+                          await MikrotikApiService.instance.createPppProfile(widget.profile, data);
+                          if (mounted) {
+                            ToastBanner.show(context, message: 'Paket PPPoE $name berhasil dibuat.', type: ToastType.success);
+                          }
                         }
                         refreshData();
                       } catch (e) {
                         if (mounted) {
-                          ToastBanner.show(context, message: 'Gagal membuat paket: $e', type: ToastType.error);
+                          ToastBanner.show(context, message: 'Gagal menyimpan paket: $e', type: ToastType.error);
                         }
                       }
                     },
                     icon: const Icon(Icons.check),
-                    label: const Text('Simpan Paket'),
+                    label: Text(isEditing ? 'Simpan Perubahan' : 'Simpan Paket'),
                   ),
+                  if (isEditing) ...[
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: colorScheme.error,
+                        side: BorderSide(color: colorScheme.error.withValues(alpha: 0.5)),
+                      ),
+                      icon: const Icon(Icons.delete_outline, size: 18),
+                      label: const Text('Hapus Paket PPPoE'),
+                      onPressed: () {
+                        showDialog(
+                          context: ctx,
+                          builder: (dialogCtx) => AlertDialog(
+                            icon: Icon(Icons.delete_outline, color: colorScheme.error),
+                            title: const Text('Hapus Paket'),
+                            content: Text('Apakah Anda yakin ingin menghapus paket "${editingProfile.name}"?'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(dialogCtx),
+                                child: const Text('Batal'),
+                              ),
+                              FilledButton(
+                                style: FilledButton.styleFrom(backgroundColor: colorScheme.error),
+                                onPressed: () async {
+                                  Navigator.pop(dialogCtx);
+                                  Navigator.pop(ctx);
+                                  try {
+                                    await MikrotikApiService.instance.deletePppProfile(widget.profile, editingProfile.id);
+                                    if (mounted) {
+                                      ToastBanner.show(context, message: 'Paket ${editingProfile.name} berhasil dihapus.', type: ToastType.success);
+                                    }
+                                    refreshData();
+                                  } catch (e) {
+                                    if (mounted) {
+                                      ToastBanner.show(context, message: 'Gagal menghapus paket: $e', type: ToastType.error);
+                                    }
+                                  }
+                                },
+                                child: const Text('Hapus'),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -685,7 +868,7 @@ class PppoeScreenState extends State<PppoeScreen> {
                   tabs: [
                     Tab(text: 'Pelanggan (${_secrets.length})'),
                     Tab(text: 'Aktif (${_activeSessions.length})'),
-                    Tab(text: 'Paket (${_profiles.length})'),
+                    Tab(text: 'Paket (${_filteredProfiles.length})'),
                   ],
                 ),
 
@@ -707,7 +890,7 @@ class PppoeScreenState extends State<PppoeScreen> {
                   )
                 : _selectedSubTab == 2
                     ? FloatingActionButton(
-                        onPressed: _showAddProfileDialog,
+                        onPressed: () => _showProfileDialog(),
                         tooltip: 'Tambah Paket',
                         child: const Icon(Icons.add),
                       )
@@ -870,143 +1053,57 @@ class PppoeScreenState extends State<PppoeScreen> {
         else ...[
           ...visibleItems.map((secret) {
             final parsed = PppoeUtils.parseExpiryFromComment(secret.comment);
-            final isOnline = _activeSessions.any((a) => a.name == secret.name);
+            final isOnline = _activeSessions.any((a) => a.name.toLowerCase() == secret.name.toLowerCase());
 
-            Color badgeCol;
+            Color? badgeCol;
+            Color? badgeTextCol;
             String badgeText;
 
             if (secret.disabled) {
-              badgeCol = colorScheme.error;
+              badgeCol = const Color(0xFF381E1E);
+              badgeTextCol = const Color(0xFFF7B1A5);
               badgeText = 'Isolir';
             } else {
               switch (parsed.status) {
                 case ExpiryStatus.expired:
-                  badgeCol = colorScheme.error;
+                  badgeCol = const Color(0xFF381E1E);
+                  badgeTextCol = const Color(0xFFF7B1A5);
                   badgeText = 'Kadaluarsa';
                   break;
                 case ExpiryStatus.expiringSoon:
-                  badgeCol = colorScheme.tertiary;
+                  badgeCol = const Color(0xFF382F1E);
+                  badgeTextCol = const Color(0xFFF7DEB1);
                   badgeText = 'Sisa ${parsed.daysRemaining} hari';
                   break;
                 case ExpiryStatus.active:
-                  badgeCol = colorScheme.primary;
-                  badgeText = 'Aktif (${parsed.daysRemaining}h)';
+                  badgeCol = const Color(0xFF1E2E38);
+                  badgeTextCol = const Color(0xFF86B9EC);
+                  badgeText = 'Sisa ${parsed.daysRemaining} hari';
                   break;
                 case ExpiryStatus.noExpiry:
-                  badgeCol = colorScheme.outline;
+                  badgeCol = null;
+                  badgeTextCol = null;
                   badgeText = 'Tanpa Batas';
                   break;
               }
             }
 
-            return Card(
-              margin: const EdgeInsets.only(bottom: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(
-                  color: secret.disabled ? colorScheme.error.withValues(alpha: 0.6) : colorScheme.outlineVariant,
-                  width: secret.disabled ? 1.5 : 1,
-                ),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Badge(
-                              smallSize: 10,
-                              backgroundColor: isOnline ? colorScheme.primary : colorScheme.outline,
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              secret.name,
-                              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-                            ),
-                          ],
-                        ),
-                        Badge(
-                          label: Text(badgeText),
-                          backgroundColor: badgeCol.withValues(alpha: 0.16),
-                          textColor: badgeCol,
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-
-                    if (parsed.customerName.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: Text(
-                          'Catatan: ${parsed.customerName}',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: colorScheme.onSurface),
-                        ),
-                      ),
-                    Row(
-                      children: [
-                        Text(
-                          'Profil: ${secret.profile}',
-                          style: FNetTheme.monoStyle(fontSize: 11, color: colorScheme.onSurfaceVariant),
-                        ),
-                        if (secret.remoteAddress.isNotEmpty) ...[
-                          const SizedBox(width: 8),
-                          Text(
-                            '• IP: ${secret.remoteAddress}',
-                            style: FNetTheme.monoStyle(fontSize: 11, color: colorScheme.onSurfaceVariant),
-                          ),
-                        ],
-                      ],
-                    ),
-                    if (parsed.expiryDate != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text(
-                          'Jatuh Tempo: ${parsed.formattedExpiry}',
-                          style: FNetTheme.monoStyle(fontSize: 11, color: colorScheme.onSurfaceVariant),
-                        ),
-                      ),
-                    const SizedBox(height: 12),
-                    Divider(height: 1, color: colorScheme.outlineVariant),
-                    const SizedBox(height: 8),
-
-                    // M3 Action Buttons
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        FilledButton.tonalIcon(
-                          onPressed: () => _handleExtend30Days(secret),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: colorScheme.primaryContainer,
-                            foregroundColor: colorScheme.onPrimaryContainer,
-                            minimumSize: const Size(48, 40),
-                          ),
-                          icon: const Icon(Icons.more_time, size: 18),
-                          label: const Text('+30 Hari', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                        ),
-                        OutlinedButton.icon(
-                          onPressed: () => _handleToggleIsolir(secret),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: secret.disabled ? colorScheme.primary : colorScheme.error,
-                            side: BorderSide(color: secret.disabled ? colorScheme.primary : colorScheme.error),
-                            minimumSize: const Size(48, 40),
-                          ),
-                          icon: Icon(secret.disabled ? Icons.lock_open : Icons.lock_outline, size: 18),
-                          label: Text(secret.disabled ? 'Buka Isolir' : 'Isolir', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                        ),
-                        IconButton(
-                          onPressed: () => _showSecretDialog(editingSecret: secret),
-                          icon: const Icon(Icons.edit_outlined, size: 20),
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12.0),
+              child: UserCardM3(
+                username: secret.name,
+                profile: secret.profile,
+                ipAddress: secret.remoteAddress.isNotEmpty ? secret.remoteAddress : null,
+                customerNote: parsed.customerName.isNotEmpty ? parsed.customerName : null,
+                jatuhTempo: parsed.formattedExpiry.isNotEmpty ? parsed.formattedExpiry : 'Tidak ada batas waktu',
+                sisaHari: badgeText,
+                isOnline: isOnline,
+                isIsolir: secret.disabled,
+                badgeColor: badgeCol,
+                badgeTextColor: badgeTextCol,
+                onAddDays: () => _handleExtend30Days(secret),
+                onIsolir: () => _handleToggleIsolir(secret),
+                onEdit: () => _showSecretDialog(editingSecret: secret),
               ),
             );
           }),
@@ -1154,40 +1251,66 @@ class PppoeScreenState extends State<PppoeScreen> {
   Widget _buildProfilesTab() {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final displayProfiles = _filteredProfiles;
+
+    if (displayProfiles.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Text(
+            'Tidak ada paket PPPoE kustom.',
+            style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13),
+          ),
+        ),
+      );
+    }
 
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       children: [
-        ..._profiles.map((p) {
+        ...displayProfiles.map((p) {
           final clientCount = _secrets.where((s) => s.profile == p.name).length;
           return Card(
             margin: const EdgeInsets.only(bottom: 10),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(p.name, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
-                      Badge(
-                        label: Text('$clientCount Pelanggan'),
-                        backgroundColor: colorScheme.primaryContainer,
-                        textColor: colorScheme.onPrimaryContainer,
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  if (p.rateLimit.isNotEmpty)
-                    Text('Rate Limit: ${p.rateLimit}', style: FNetTheme.monoStyle(fontSize: 13, fontWeight: FontWeight.w800, color: colorScheme.primary)),
-                  if (p.localAddress.isNotEmpty || p.remoteAddress.isNotEmpty)
-                    Text(
-                      'Local: ${p.localAddress.isNotEmpty ? p.localAddress : "-"} • Pool: ${p.remoteAddress.isNotEmpty ? p.remoteAddress : "-"}',
-                      style: FNetTheme.monoStyle(fontSize: 10, color: colorScheme.onSurfaceVariant),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => _showProfileDialog(editingProfile: p),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(p.name, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+                        ),
+                        Badge(
+                          label: Text('$clientCount Pelanggan'),
+                          backgroundColor: colorScheme.primaryContainer,
+                          textColor: colorScheme.onPrimaryContainer,
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        ),
+                        const SizedBox(width: 4),
+                        IconButton(
+                          icon: const Icon(Icons.edit_outlined, size: 20),
+                          color: colorScheme.onSurfaceVariant,
+                          tooltip: 'Edit Paket',
+                          onPressed: () => _showProfileDialog(editingProfile: p),
+                        ),
+                      ],
                     ),
-                ],
+                    const SizedBox(height: 6),
+                    if (p.rateLimit.isNotEmpty)
+                      Text('Rate Limit: ${p.rateLimit}', style: FNetTheme.monoStyle(fontSize: 13, fontWeight: FontWeight.w800, color: colorScheme.primary)),
+                    if (p.localAddress.isNotEmpty || p.remoteAddress.isNotEmpty)
+                      Text(
+                        'Local: ${p.localAddress.isNotEmpty ? p.localAddress : "-"} • Pool: ${p.remoteAddress.isNotEmpty ? p.remoteAddress : "-"}',
+                        style: FNetTheme.monoStyle(fontSize: 10, color: colorScheme.onSurfaceVariant),
+                      ),
+                  ],
+                ),
               ),
             ),
           );

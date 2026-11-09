@@ -7,6 +7,7 @@ import '../utils/format_utils.dart';
 import '../utils/hotspot_utils.dart';
 import '../widgets/loading_indicator_m3e.dart';
 import '../widgets/toast_banner.dart';
+import '../widgets/user_card_m3.dart';
 
 class HotspotScreen extends StatefulWidget {
   final RouterProfile profile;
@@ -882,112 +883,60 @@ class HotspotScreenState extends State<HotspotScreen> {
             final exp = HotspotUtils.calculateHotspotUserExpiry(user, _profiles);
             final isOnline = _activeSessions.any((a) => a.user == user.name);
 
-            Color badgeCol;
+            Color? badgeCol;
+            Color? badgeTextCol;
+            final isDark = theme.brightness == Brightness.dark;
+
             switch (exp.status) {
               case HotspotStatus.active:
-                badgeCol = colorScheme.primary;
+                badgeCol = isDark ? const Color(0xFF1E2E38) : colorScheme.primaryContainer;
+                badgeTextCol = isDark ? const Color(0xFF86B9EC) : colorScheme.onPrimaryContainer;
                 break;
               case HotspotStatus.expiringSoon:
-                badgeCol = colorScheme.tertiary;
+                badgeCol = isDark ? const Color(0xFF382F1E) : colorScheme.tertiaryContainer;
+                badgeTextCol = isDark ? const Color(0xFFF7DEB1) : colorScheme.onTertiaryContainer;
                 break;
               case HotspotStatus.expired:
-                badgeCol = colorScheme.error;
+                badgeCol = isDark ? const Color(0xFF381E1E) : colorScheme.errorContainer;
+                badgeTextCol = isDark ? const Color(0xFFF7B1A5) : colorScheme.onErrorContainer;
                 break;
               case HotspotStatus.unused:
-                badgeCol = colorScheme.secondary;
+                badgeCol = isDark ? const Color(0xFF262D38) : colorScheme.surfaceContainerHighest;
+                badgeTextCol = isDark ? const Color(0xFFCFD6E2) : colorScheme.onSurfaceVariant;
                 break;
               case HotspotStatus.disabled:
-                badgeCol = colorScheme.outline;
+                badgeCol = isDark ? const Color(0xFF202020) : colorScheme.surfaceContainer;
+                badgeTextCol = isDark ? Colors.grey : colorScheme.outline;
                 break;
             }
 
-            return Card(
-              margin: const EdgeInsets.only(bottom: 12),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Badge(
-                              smallSize: 10,
-                              backgroundColor: isOnline ? colorScheme.primary : colorScheme.outline,
-                            ),
-                            const SizedBox(width: 10),
-                            SelectableText(
-                              user.name,
-                              style: FNetTheme.monoStyle(fontSize: 16, fontWeight: FontWeight.w800, color: colorScheme.onSurface),
-                            ),
-                          ],
-                        ),
-                        Badge(
-                          label: Text(exp.badgeText),
-                          backgroundColor: badgeCol.withValues(alpha: 0.16),
-                          textColor: badgeCol,
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
+            final totalBytes = user.bytesIn + user.bytesOut;
+            final usageText = totalBytes > 0 ? FormatUtils.formatBytes(totalBytes) : null;
+            final timeRemaining = exp.sisaText.isNotEmpty ? 'Sisa Waktu: ${exp.sisaText}' : null;
+            final jatuhTempo = exp.formattedDate != '-' ? exp.formattedDate : null;
 
-                    Row(
-                      children: [
-                        Text('Profil: ${user.profile}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: colorScheme.onSurface)),
-                        const SizedBox(width: 8),
-                        Text('• ${exp.sisaText}', style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant)),
-                      ],
-                    ),
-                    if (user.comment.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text('Catatan: ${user.comment}', style: TextStyle(fontSize: 11, color: colorScheme.onSurfaceVariant)),
-                      ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Pemakaian: ${FormatUtils.formatBytes(user.bytesIn + user.bytesOut)}',
-                      style: FNetTheme.monoStyle(fontSize: 10, color: colorScheme.onSurfaceVariant),
-                    ),
-                    const SizedBox(height: 12),
-                    Divider(height: 1, color: colorScheme.outlineVariant),
-                    const SizedBox(height: 8),
-
-                    // M3 Actions
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        FilledButton.tonalIcon(
-                          onPressed: () => _showPrintVoucherReceipt(user),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: colorScheme.primaryContainer,
-                            foregroundColor: colorScheme.onPrimaryContainer,
-                            minimumSize: const Size(48, 40),
-                          ),
-                          icon: const Icon(Icons.receipt_long_outlined, size: 18),
-                          label: const Text('Cetak Slip', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                        ),
-                        OutlinedButton.icon(
-                          onPressed: () => _handleResetMac(user),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: colorScheme.tertiary,
-                            side: BorderSide(color: colorScheme.tertiary),
-                            minimumSize: const Size(48, 40),
-                          ),
-                          icon: const Icon(Icons.phonelink_erase, size: 18),
-                          label: const Text('Reset MAC', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                        ),
-                        IconButton(
-                          onPressed: () => _showSingleVoucherModal(editingUser: user),
-                          icon: const Icon(Icons.edit_outlined, size: 20),
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12.0),
+              child: UserCardM3(
+                username: user.name,
+                profile: user.profile,
+                customerNote: user.comment.isNotEmpty ? user.comment : null,
+                usage: usageText,
+                timeRemaining: timeRemaining,
+                jatuhTempo: jatuhTempo,
+                sisaHari: exp.badgeText,
+                isOnline: isOnline,
+                badgeColor: badgeCol,
+                badgeTextColor: badgeTextCol,
+                primaryActionLabel: 'Cetak Slip',
+                primaryActionIcon: Icons.receipt_long_outlined,
+                onPrimaryAction: () => _showPrintVoucherReceipt(user),
+                secondaryActionLabel: 'Reset MAC',
+                secondaryActionIcon: Icons.phonelink_erase,
+                onSecondaryAction: () => _handleResetMac(user),
+                secondaryActionColor: isDark ? const Color(0xFF86B9EC) : colorScheme.primary,
+                secondaryActionBorderColor: isDark ? const Color(0xFF0F4D77) : colorScheme.outline,
+                onEdit: () => _showSingleVoucherModal(editingUser: user),
               ),
             );
           }),

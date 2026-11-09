@@ -84,6 +84,16 @@ Dokumen ini mencatat riwayat percakapan, keputusan arsitektur, dan evolusi penge
 
 ---
 
+### 6. Standardisasi Kartu Pengguna M3 & Remote IP Pool Select
+- **Komponen**: [`lib/widgets/user_card_m3.dart`](lib/widgets/user_card_m3.dart), [`lib/screens/hotspot_screen.dart`](lib/screens/hotspot_screen.dart), [`lib/screens/pppoe_screen.dart`](lib/screens/pppoe_screen.dart)
+- **Implementasi**:
+  - Komponen modular `UserCardM3` dengan radius `24px`, dot status online/offline, badge pil waktu semantik, dan tombol aksi fleksibel.
+  - Penyeragaman kartu daftar Hotspot Voucher agar identik secara visual dan interaksi dengan kartu PPPoE (Cetak Slip, Reset MAC, Edit).
+  - Pilihan Remote Address pada Paket PPPoE (PPP Profile) beralih ke `DropdownButtonFormField` (select) yang terintegrasi langsung dengan daftar IP Pool MikroTik secara real-time.
+  - Deteksi otomatis IP sesi aktif dan filter paket profil bawaan sistem (`default`, `default-encryption`).
+
+---
+
 ## 📜 Log Riwayat Git Commit
 
 ```text
