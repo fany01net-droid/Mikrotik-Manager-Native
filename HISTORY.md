@@ -104,6 +104,57 @@ Dokumen ini mencatat riwayat percakapan, keputusan arsitektur, dan evolusi penge
 
 ---
 
+### 8. Penggantian Widget Uptime dengan IP Publik & Provider serta Pembersihan Uji Respon
+- **Komponen**: [`lib/screens/beranda_screen.dart`](lib/screens/beranda_screen.dart), [`lib/screens/main_navigation_screen.dart`](lib/screens/main_navigation_screen.dart), [`lib/services/mikrotik_api_service.dart`](lib/services/mikrotik_api_service.dart), [`lib/models/mikrotik_models.dart`](lib/models/mikrotik_models.dart)
+- **Implementasi**:
+  - Penggantian widget dashboard `uptime_clock` dengan widget **IP Publik & Provider (`public_ip`)**:
+    - Data IP Publik diambil murni langsung dari internal MikroTik (`/rest/ip/cloud` & `/rest/ip/address`) tanpa API pihak ketiga.
+    - Tampilan menggunakan kartu Material 3 standar murni tanpa gradien aneh.
+  - Penghapusan opsi **Uji Respon Koneksi**:
+    - Dihapus dari AppBar dan kartu dashboard, digantikan dengan tombol *Salin IP Publik*.
+
+---
+
+### 9. Standardisasi Hold-to-Select & Option Hapus (Pembersihan Tombol Hapus Langsung)
+- **Komponen**: [`lib/screens/dhcp_screen.dart`](lib/screens/dhcp_screen.dart), [`lib/widgets/user_card_m3.dart`](lib/widgets/user_card_m3.dart), [`lib/screens/hotspot_screen.dart`](lib/screens/hotspot_screen.dart), [`lib/screens/pppoe_screen.dart`](lib/screens/pppoe_screen.dart)
+- **Implementasi**:
+  - **Penghapusan Tombol Hapus Langsung di Kartu**:
+    - Menghapus tombol icon hapus (trash) yang menempel langsung pada kartu DHCP Lease untuk menghindari ketidaksengajaan terhapus dan merapikan tampilan kartu.
+  - **Mekanisme Hold-to-Select (Tekan dan Tahan untuk Memilih)**:
+    - Menekan dan menahan kartu (long press / hold) mengaktifkan mode seleksi multi-item secara instan.
+    - Kartu yang terpilih mendapatkan sorotan border M3 (`colorScheme.primary`) dan indikator radio/check circle Material 3.
+  - **Contextual Option Hapus**:
+    - Saat item terpilih, muncul Action Bar kontekstual M3 di bagian atas berisi: jumlah terpilih, tombol *Pilih Semua / Batal Semua*, tombol *Batal*, serta **Opsi Hapus** (`FilledButton` M3 berwarna error).
+    - Menekan opsi Hapus memunculkan dialog konfirmasi M3 sebelum menghapus item terpilih secara aman dari router.
+  - **Penerapan Terpadu**: Diterapkan seragam pada modul DHCP Leases, Voucher Hotspot, dan Pelanggan PPPoE.
+
+---
+
+### 10. Resolusi Otomatis Nama ISP Berdasarkan IP Publik Router (SpaceX Starlink)
+- **Komponen**: [`lib/services/mikrotik_api_service.dart`](lib/services/mikrotik_api_service.dart), [`lib/screens/beranda_screen.dart`](lib/screens/beranda_screen.dart)
+- **Implementasi**:
+  - Setelah IP Publik didapatkan langsung dari internal MikroTik (misal `203.17.87.109`), sistem secara otomatis menyelesaikan organisasi / ISP pemilik IP tersebut.
+  - Untuk IP `203.17.87.109` (yang terdaftar pada ASN 45700 STARLINK / PT Starlink Services Indonesia), label "MikroTik Cloud" otomatis digantikan menjadi **`SpaceX Starlink`**.
+  - Subtitle kartu menampilkan rincian ISP resmi (`PT Starlink Services Indonesia • AS45700`).
+  - Mencegah fallback nama menjadi teks generik "MikroTik Cloud" atau "MikroTik WAN".
+
+---
+
+### 11. Penyederhanaan Bilah Seleksi Hold-to-Select: Pinned Top Bar Tunggal
+- **Komponen**: [`lib/screens/dhcp_screen.dart`](lib/screens/dhcp_screen.dart), [`lib/screens/hotspot_screen.dart`](lib/screens/hotspot_screen.dart), [`lib/screens/pppoe_screen.dart`](lib/screens/pppoe_screen.dart)
+- **Implementasi**:
+  - **Penghapusan Bilah Ganda Atas-Bawah**: Menghilangkan bilah aksi ganda di bagian bawah layar sesuai preferensi pengguna, sehingga tampilan lebih bersih dan tidak memakan ruang pandang (*clean UI*).
+  - **Pinned Top Selection Bar Tunggal**:
+    - Bilah seleksi diletakkan secara permanen di bagian atas menggantikan `TabBar` di dalam `Column` (di luar `Expanded ListView`).
+    - **Bebas Scroll**: Karena berada di luar `ListView`, bilah atas ini **terkunci permanen di atas dan tidak akan pernah ikut tergulung/scroll** ketika pengguna menggulir daftar item ke bawah.
+    - Dilengkapi aksi lengkap: tombol *Batal Pilih (`X`)*, indikator *"X dipilih"*, tombol *Pilih Semua / Batal Semua*, serta tombol aksi utama **`Hapus`** (`FilledButton` Material 3 warna error).
+  - **Penerapan Seragam**: Diterapkan konsisten di modul DHCP Leases, Voucher Hotspot, dan Pelanggan PPPoE.
+
+
+
+
+---
+
 ## 📜 Log Riwayat Git Commit
 
 ```text

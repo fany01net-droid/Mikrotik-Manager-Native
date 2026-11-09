@@ -45,6 +45,9 @@ class PppoeScreenState extends State<PppoeScreen> {
   String _secretFilter = 'all';
   final TextEditingController _searchController = TextEditingController();
 
+  // Multi-select / Hold-to-select support
+  final Set<String> _selectedSecretIds = {};
+
   // Infinite Scroll Lazy Load Chunking (25 data per chunk)
   int _visibleSecretsCount = 25;
   int _visibleActiveCount = 25;
@@ -243,6 +246,96 @@ class PppoeScreenState extends State<PppoeScreen> {
         );
       }
     }
+  }
+
+  void _toggleSelectSecret(String id) {
+    setState(() {
+      if (_selectedSecretIds.contains(id)) {
+        _selectedSecretIds.remove(id);
+      } else {
+        _selectedSecretIds.add(id);
+      }
+    });
+  }
+
+  void _selectAllSecrets(List<PppSecret> items) {
+    setState(() {
+      if (_selectedSecretIds.length == items.length) {
+        _selectedSecretIds.clear();
+      } else {
+        _selectedSecretIds.addAll(items.map((e) => e.id));
+      }
+    });
+  }
+
+  void _clearSecretSelection() {
+    setState(() {
+      _selectedSecretIds.clear();
+    });
+  }
+
+  void _confirmDeleteSelectedSecrets() {
+    if (_selectedSecretIds.isEmpty) return;
+    final selectedCount = _selectedSecretIds.length;
+    final singleSecret = selectedCount == 1
+        ? _secrets.firstWhere((s) => s.id == _selectedSecretIds.first, orElse: () => _secrets.first)
+        : null;
+
+    final title = selectedCount == 1 ? 'Hapus Pelanggan PPPoE?' : 'Hapus $selectedCount Pelanggan?';
+    final content = selectedCount == 1
+        ? 'Apakah Anda yakin ingin menghapus pelanggan "${singleSecret?.name}" dari router?'
+        : 'Apakah Anda yakin ingin menghapus $selectedCount pelanggan PPPoE terpilih dari router?';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error),
+        title: Text(title),
+        content: Text(content),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final idsToDelete = List<String>.from(_selectedSecretIds);
+              _clearSecretSelection();
+
+              int successCount = 0;
+              for (final id in idsToDelete) {
+                try {
+                  await MikrotikApiService.instance.deletePppSecret(widget.profile, id);
+                  successCount++;
+                } catch (_) {}
+              }
+
+              if (mounted) {
+                if (successCount == idsToDelete.length) {
+                  ToastBanner.show(
+                    context,
+                    message: selectedCount == 1
+                        ? 'Pelanggan PPPoE berhasil dihapus.'
+                        : '$successCount pelanggan berhasil dihapus.',
+                    type: ToastType.success,
+                  );
+                } else {
+                  ToastBanner.show(
+                    context,
+                    message: '$successCount dari ${idsToDelete.length} pelanggan berhasil dihapus.',
+                    type: ToastType.info,
+                  );
+                }
+              }
+              refreshData();
+            },
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
   }
 
   // --- M3 Add / Edit Secret Modal BottomSheet ---
@@ -807,6 +900,28 @@ class PppoeScreenState extends State<PppoeScreen> {
     );
   }
 
+  List<PppSecret> _getFilteredSecrets() {
+    return _secrets.where((s) {
+      if (_searchQuery.isNotEmpty) {
+        final q = _searchQuery.toLowerCase();
+        if (!s.name.toLowerCase().contains(q) && !s.comment.toLowerCase().contains(q)) {
+          return false;
+        }
+      }
+      final parsed = PppoeUtils.parseExpiryFromComment(s.comment);
+      if (_secretFilter == 'active') {
+        return !s.disabled && parsed.status == ExpiryStatus.active;
+      } else if (_secretFilter == 'expiringSoon') {
+        return !s.disabled && parsed.status == ExpiryStatus.expiringSoon;
+      } else if (_secretFilter == 'expired') {
+        return !s.disabled && parsed.status == ExpiryStatus.expired;
+      } else if (_secretFilter == 'isolated') {
+        return s.disabled;
+      }
+      return true;
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -851,6 +966,9 @@ class PppoeScreenState extends State<PppoeScreen> {
       );
     }
 
+    final isSecretSelectionMode = _selectedSecretIds.isNotEmpty && _selectedSubTab == 0;
+    final filteredSecrets = _getFilteredSecrets();
+
     return DefaultTabController(
       length: 3,
       initialIndex: _selectedSubTab,
@@ -859,18 +977,66 @@ class PppoeScreenState extends State<PppoeScreen> {
           return Scaffold(
             body: Column(
               children: [
-                // Official Material 3 Secondary TabBar (Menggantikan SegmentedButton)
-                TabBar(
-                  onTap: (index) => setState(() => _selectedSubTab = index),
-                  indicatorSize: TabBarIndicatorSize.tab,
-                  labelColor: colorScheme.primary,
-                  unselectedLabelColor: colorScheme.onSurfaceVariant,
-                  tabs: [
-                    Tab(text: 'Pelanggan (${_secrets.length})'),
-                    Tab(text: 'Aktif (${_activeSessions.length})'),
-                    Tab(text: 'Paket (${_filteredProfiles.length})'),
-                  ],
-                ),
+                // Official Material 3 Secondary TabBar or Pinned Top Selection Bar
+                if (isSecretSelectionMode)
+                  Container(
+                    color: colorScheme.surfaceContainerHighest,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded),
+                          tooltip: 'Batal Pilih',
+                          onPressed: _clearSecretSelection,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${_selectedSecretIds.length} dipilih',
+                          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                        const Spacer(),
+                        TextButton.icon(
+                          onPressed: () => _selectAllSecrets(filteredSecrets),
+                          icon: Icon(
+                            _selectedSecretIds.length == filteredSecrets.length
+                                ? Icons.deselect_rounded
+                                : Icons.select_all_rounded,
+                            size: 18,
+                          ),
+                          label: Text(_selectedSecretIds.length == filteredSecrets.length
+                              ? 'Batal Semua'
+                              : 'Pilih Semua'),
+                        ),
+                        const SizedBox(width: 8),
+                        FilledButton.icon(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: colorScheme.error,
+                            foregroundColor: colorScheme.onError,
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          ),
+                          icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                          label: Text('Hapus (${_selectedSecretIds.length})'),
+                          onPressed: _confirmDeleteSelectedSecrets,
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  TabBar(
+                    onTap: (index) {
+                      _clearSecretSelection();
+                      setState(() => _selectedSubTab = index);
+                    },
+                    indicatorSize: TabBarIndicatorSize.tab,
+                    labelColor: colorScheme.primary,
+                    unselectedLabelColor: colorScheme.onSurfaceVariant,
+                    tabs: [
+                      Tab(text: 'Pelanggan (${_secrets.length})'),
+                      Tab(text: 'Aktif (${_activeSessions.length})'),
+                      Tab(text: 'Paket (${_filteredProfiles.length})'),
+                    ],
+                  ),
 
                 // Content body
                 Expanded(
@@ -882,19 +1048,21 @@ class PppoeScreenState extends State<PppoeScreen> {
                 ),
               ],
             ),
-            floatingActionButton: _selectedSubTab == 0
-                ? FloatingActionButton(
-                    onPressed: () => _showSecretDialog(),
-                    tooltip: 'Tambah Pelanggan',
-                    child: const Icon(Icons.add),
-                  )
-                : _selectedSubTab == 2
+            floatingActionButton: isSecretSelectionMode
+                ? null
+                : (_selectedSubTab == 0
                     ? FloatingActionButton(
-                        onPressed: () => _showProfileDialog(),
-                        tooltip: 'Tambah Paket',
+                        onPressed: () => _showSecretDialog(),
+                        tooltip: 'Tambah Pelanggan',
                         child: const Icon(Icons.add),
                       )
-                    : null,
+                    : _selectedSubTab == 2
+                        ? FloatingActionButton(
+                            onPressed: () => _showProfileDialog(),
+                            tooltip: 'Tambah Paket',
+                            child: const Icon(Icons.add),
+                          )
+                        : null),
           );
         },
       ),
@@ -981,26 +1149,7 @@ class PppoeScreenState extends State<PppoeScreen> {
     }).length;
     final isolatedCount = _secrets.where((s) => s.disabled).length;
 
-    final filtered = _secrets.where((s) {
-      if (_searchQuery.isNotEmpty) {
-        final q = _searchQuery.toLowerCase();
-        if (!s.name.toLowerCase().contains(q) && !s.comment.toLowerCase().contains(q)) {
-          return false;
-        }
-      }
-      final parsed = PppoeUtils.parseExpiryFromComment(s.comment);
-      if (_secretFilter == 'active') {
-        return !s.disabled && parsed.status == ExpiryStatus.active;
-      } else if (_secretFilter == 'expiringSoon') {
-        return !s.disabled && parsed.status == ExpiryStatus.expiringSoon;
-      } else if (_secretFilter == 'expired') {
-        return !s.disabled && parsed.status == ExpiryStatus.expired;
-      } else if (_secretFilter == 'isolated') {
-        return s.disabled;
-      }
-      return true;
-    }).toList();
-
+    final filtered = _getFilteredSecrets();
     final visibleItems = filtered.take(_visibleSecretsCount).toList();
 
     return ListView(
@@ -1104,6 +1253,14 @@ class PppoeScreenState extends State<PppoeScreen> {
                 onAddDays: () => _handleExtend30Days(secret),
                 onIsolir: () => _handleToggleIsolir(secret),
                 onEdit: () => _showSecretDialog(editingSecret: secret),
+                isSelected: _selectedSecretIds.contains(secret.id),
+                isSelectionMode: _selectedSecretIds.isNotEmpty,
+                onLongPress: () => _toggleSelectSecret(secret.id),
+                onTap: () {
+                  if (_selectedSecretIds.isNotEmpty) {
+                    _toggleSelectSecret(secret.id);
+                  }
+                },
               ),
             );
           }),

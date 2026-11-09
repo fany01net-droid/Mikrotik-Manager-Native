@@ -29,6 +29,12 @@ class UserCardM3 extends StatelessWidget {
   final Color? secondaryActionColor;
   final Color? secondaryActionBorderColor;
 
+  // Selection / Hold-to-select support
+  final VoidCallback? onLongPress;
+  final VoidCallback? onTap;
+  final bool isSelected;
+  final bool isSelectionMode;
+
   const UserCardM3({
     super.key,
     required this.username,
@@ -54,13 +60,22 @@ class UserCardM3 extends StatelessWidget {
     this.onSecondaryAction,
     this.secondaryActionColor,
     this.secondaryActionBorderColor,
+    this.onLongPress,
+    this.onTap,
+    this.isSelected = false,
+    this.isSelectionMode = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardBg = isDark ? const Color(0xFF0F151B) : Theme.of(context).colorScheme.surface;
-    final borderColor = isDark ? const Color(0xFF1E2833) : Theme.of(context).colorScheme.outlineVariant;
+    final defaultCardBg = isDark ? const Color(0xFF0F151B) : Theme.of(context).colorScheme.surface;
+    final cardBg = isSelected
+        ? (isDark ? const Color(0xFF132838) : Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.25))
+        : defaultCardBg;
+    final borderColor = isSelected
+        ? Theme.of(context).colorScheme.primary
+        : (isDark ? const Color(0xFF1E2833) : Theme.of(context).colorScheme.outlineVariant);
     final titleColor = isDark ? Colors.white : Theme.of(context).colorScheme.onSurface;
     final subtitleColor = isDark ? const Color(0xFF9EA7B2) : Theme.of(context).colorScheme.onSurfaceVariant;
     final dividerColor = isDark ? const Color(0xFF1E2833) : Theme.of(context).colorScheme.outlineVariant;
@@ -76,27 +91,37 @@ class UserCardM3 extends StatelessWidget {
       color: cardBg,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(24.0),
-        side: BorderSide(color: borderColor, width: 1),
+        side: BorderSide(color: borderColor, width: isSelected ? 2 : 1),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Bagian Utama: Status dot, Username, Detail profil & Sisa hari/Status
-            ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16.0),
-              leading: Container(
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: isOnline ? const Color(0xFF86B9EC) : Colors.grey,
-                ),
-              ),
-              minLeadingWidth: 0,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(24.0),
+        onTap: onTap,
+        onLongPress: onLongPress,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Bagian Utama: Status dot, Username, Detail profil & Sisa hari/Status
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16.0),
+                leading: isSelectionMode
+                    ? Icon(
+                        isSelected ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+                        color: isSelected ? Theme.of(context).colorScheme.primary : subtitleColor,
+                        size: 20,
+                      )
+                    : Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: isOnline ? const Color(0xFF86B9EC) : Colors.grey,
+                        ),
+                      ),
+                minLeadingWidth: 0,
               title: Text(
                 username,
                 style: TextStyle(
@@ -245,6 +270,7 @@ class UserCardM3 extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

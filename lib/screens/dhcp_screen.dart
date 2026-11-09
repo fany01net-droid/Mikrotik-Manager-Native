@@ -31,6 +31,9 @@ class DhcpScreenState extends State<DhcpScreen> {
   int _selectedSubTab = 0; // 0: Semua, 1: Aktif, 2: Menunggu
   String _serverFilter = 'all';
 
+  // Multi-select / Hold-to-select support
+  final Set<String> _selectedLeaseIds = {};
+
   // Infinite Scroll Lazy Load Chunking (25 data per chunk)
   int _visibleLeasesCount = 25;
   final ScrollController _leaseScrollController = ScrollController();
@@ -142,13 +145,51 @@ class DhcpScreenState extends State<DhcpScreen> {
     }
   }
 
-  void _confirmDeleteLease(DhcpLease lease) {
+  void _toggleSelectLease(String id) {
+    setState(() {
+      if (_selectedLeaseIds.contains(id)) {
+        _selectedLeaseIds.remove(id);
+      } else {
+        _selectedLeaseIds.add(id);
+      }
+    });
+  }
+
+  void _selectAllLeases(List<DhcpLease> items) {
+    setState(() {
+      if (_selectedLeaseIds.length == items.length) {
+        _selectedLeaseIds.clear();
+      } else {
+        _selectedLeaseIds.addAll(items.map((e) => e.id));
+      }
+    });
+  }
+
+  void _clearSelection() {
+    setState(() {
+      _selectedLeaseIds.clear();
+    });
+  }
+
+  void _confirmDeleteSelectedLeases() {
+    if (_selectedLeaseIds.isEmpty) return;
+
+    final selectedCount = _selectedLeaseIds.length;
+    final singleLease = selectedCount == 1
+        ? _leases.firstWhere((l) => l.id == _selectedLeaseIds.first, orElse: () => _leases.first)
+        : null;
+
+    final title = selectedCount == 1 ? 'Hapus DHCP Lease?' : 'Hapus $selectedCount Lease?';
+    final content = selectedCount == 1
+        ? 'Apakah Anda yakin ingin menghapus lease untuk IP ${singleLease?.address} (${singleLease?.macAddress})?'
+        : 'Apakah Anda yakin ingin menghapus $selectedCount DHCP lease terpilih dari router?';
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         icon: Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error),
-        title: const Text('Hapus DHCP Lease?'),
-        content: Text('Apakah Anda yakin ingin menghapus lease untuk IP ${lease.address} (${lease.macAddress})?'),
+        title: Text(title),
+        content: Text(content),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -158,17 +199,35 @@ class DhcpScreenState extends State<DhcpScreen> {
             style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
             onPressed: () async {
               Navigator.pop(ctx);
-              try {
-                await MikrotikApiService.instance.deleteDhcpLease(widget.profile, lease.id);
-                if (mounted) {
-                  ToastBanner.show(context, message: 'Lease ${lease.address} berhasil dihapus.', type: ToastType.success);
-                }
-                refreshData();
-              } catch (e) {
-                if (mounted) {
-                  ToastBanner.show(context, message: 'Gagal menghapus lease: $e', type: ToastType.error);
+              final idsToDelete = List<String>.from(_selectedLeaseIds);
+              _clearSelection();
+
+              int successCount = 0;
+              for (final id in idsToDelete) {
+                try {
+                  await MikrotikApiService.instance.deleteDhcpLease(widget.profile, id);
+                  successCount++;
+                } catch (_) {}
+              }
+
+              if (mounted) {
+                if (successCount == idsToDelete.length) {
+                  ToastBanner.show(
+                    context,
+                    message: selectedCount == 1
+                        ? 'Lease berhasil dihapus.'
+                        : '$successCount lease berhasil dihapus.',
+                    type: ToastType.success,
+                  );
+                } else {
+                  ToastBanner.show(
+                    context,
+                    message: '$successCount dari ${idsToDelete.length} lease berhasil dihapus.',
+                    type: ToastType.info,
+                  );
                 }
               }
+              refreshData();
             },
             child: const Text('Hapus'),
           ),
@@ -257,23 +316,65 @@ class DhcpScreenState extends State<DhcpScreen> {
           return Scaffold(
             body: Column(
               children: [
-                // Official Material 3 Secondary TabBar
-                TabBar(
-                  onTap: (index) {
-                    setState(() {
-                      _selectedSubTab = index;
-                      _visibleLeasesCount = 25;
-                    });
-                  },
-                  indicatorSize: TabBarIndicatorSize.tab,
-                  labelColor: colorScheme.primary,
-                  unselectedLabelColor: colorScheme.onSurfaceVariant,
-                  tabs: [
-                    Tab(text: 'Semua ($totalCount)'),
-                    Tab(text: 'Aktif ($boundCount)'),
-                    Tab(text: 'Menunggu ($waitingCount)'),
-                  ],
-                ),
+                // Official Material 3 Secondary TabBar or Pinned Top Selection Bar
+                if (_selectedLeaseIds.isNotEmpty)
+                  Container(
+                    color: colorScheme.surfaceContainerHighest,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded),
+                          tooltip: 'Batal Pilih',
+                          onPressed: _clearSelection,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${_selectedLeaseIds.length} dipilih',
+                          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                        const Spacer(),
+                        TextButton.icon(
+                          onPressed: () => _selectAllLeases(filtered),
+                          icon: Icon(
+                            _selectedLeaseIds.length == filtered.length ? Icons.deselect_rounded : Icons.select_all_rounded,
+                            size: 18,
+                          ),
+                          label: Text(_selectedLeaseIds.length == filtered.length ? 'Batal Semua' : 'Pilih Semua'),
+                        ),
+                        const SizedBox(width: 8),
+                        FilledButton.icon(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: colorScheme.error,
+                            foregroundColor: colorScheme.onError,
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          ),
+                          icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                          label: Text('Hapus (${_selectedLeaseIds.length})'),
+                          onPressed: _confirmDeleteSelectedLeases,
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  TabBar(
+                    onTap: (index) {
+                      _clearSelection();
+                      setState(() {
+                        _selectedSubTab = index;
+                        _visibleLeasesCount = 25;
+                      });
+                    },
+                    indicatorSize: TabBarIndicatorSize.tab,
+                    labelColor: colorScheme.primary,
+                    unselectedLabelColor: colorScheme.onSurfaceVariant,
+                    tabs: [
+                      Tab(text: 'Semua ($totalCount)'),
+                      Tab(text: 'Aktif ($boundCount)'),
+                      Tab(text: 'Menunggu ($waitingCount)'),
+                    ],
+                  ),
 
                 // Content body
                 Expanded(
@@ -335,6 +436,8 @@ class DhcpScreenState extends State<DhcpScreen> {
                       final isBound = lease.status == 'bound';
                       final vendor = FormatUtils.detectDeviceVendor(lease.macAddress, lease.hostName);
                       final displayName = lease.hostName.isNotEmpty ? lease.hostName : lease.address;
+                      final isSelected = _selectedLeaseIds.contains(lease.id);
+                      final isSelectionMode = _selectedLeaseIds.isNotEmpty;
 
                       final badgeBg = lease.isDynamic
                           ? (isDark ? const Color(0xFF262D38) : colorScheme.surfaceContainerHighest)
@@ -343,42 +446,61 @@ class DhcpScreenState extends State<DhcpScreen> {
                           ? (isDark ? const Color(0xFFCFD6E2) : colorScheme.onSurfaceVariant)
                           : (isDark ? const Color(0xFF86B9EC) : colorScheme.onPrimaryContainer);
 
+                      final effectiveCardBg = isSelected
+                          ? (isDark ? const Color(0xFF132838) : colorScheme.primaryContainer.withValues(alpha: 0.25))
+                          : cardBg;
+                      final effectiveBorderColor = isSelected ? colorScheme.primary : borderColor;
+
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 12.0),
                         child: Card(
                           elevation: 0,
-                          color: cardBg,
+                          color: effectiveCardBg,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(24.0),
-                            side: BorderSide(color: borderColor, width: 1),
+                            side: BorderSide(color: effectiveBorderColor, width: isSelected ? 2 : 1),
                           ),
                           clipBehavior: Clip.antiAlias,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8.0),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Header: Status dot, Title, Dynamic/Static badge
-                                ListTile(
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16.0),
-                                  leading: Container(
-                                    width: 10,
-                                    height: 10,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: isBound ? const Color(0xFF86B9EC) : Colors.grey,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(24.0),
+                            onTap: () {
+                              if (isSelectionMode) {
+                                _toggleSelectLease(lease.id);
+                              }
+                            },
+                            onLongPress: () => _toggleSelectLease(lease.id),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 8.0),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Header: Status dot, Title, Dynamic/Static badge
+                                  ListTile(
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 16.0),
+                                    leading: isSelectionMode
+                                        ? Icon(
+                                            isSelected ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+                                            color: isSelected ? colorScheme.primary : subtitleColor,
+                                            size: 20,
+                                          )
+                                        : Container(
+                                            width: 10,
+                                            height: 10,
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              color: isBound ? const Color(0xFF86B9EC) : Colors.grey,
+                                            ),
+                                          ),
+                                    minLeadingWidth: 0,
+                                    title: Text(
+                                      displayName,
+                                      style: TextStyle(
+                                        color: titleColor,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                      ),
                                     ),
-                                  ),
-                                  minLeadingWidth: 0,
-                                  title: Text(
-                                    displayName,
-                                    style: TextStyle(
-                                      color: titleColor,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                    ),
-                                  ),
                                   trailing: Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                     decoration: BoxDecoration(
@@ -529,13 +651,6 @@ class DhcpScreenState extends State<DhcpScreen> {
                                           ToastBanner.show(context, message: 'Alamat IP ${lease.address} berhasil disalin.', type: ToastType.info);
                                         },
                                       ),
-                                      const SizedBox(width: 4),
-                                      IconButton(
-                                        tooltip: 'Hapus Lease',
-                                        icon: const Icon(Icons.delete_outline, size: 20),
-                                        color: colorScheme.error,
-                                        onPressed: () => _confirmDeleteLease(lease),
-                                      ),
                                     ],
                                   ),
                                 ),
@@ -543,7 +658,8 @@ class DhcpScreenState extends State<DhcpScreen> {
                             ),
                           ),
                         ),
-                      );
+                      ),
+                    );
                     }),
                     if (visibleItems.length < filtered.length)
                       Padding(

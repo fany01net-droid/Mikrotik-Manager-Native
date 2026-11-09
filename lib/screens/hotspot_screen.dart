@@ -44,6 +44,9 @@ class HotspotScreenState extends State<HotspotScreen> {
   String _searchQuery = '';
   String _userFilter = 'all';
 
+  // Multi-select / Hold-to-select support
+  final Set<String> _selectedVoucherIds = {};
+
   // Lazy Load Chunking (25 data per chunk) & Scroll Controllers
   int _visibleVouchersCount = 25;
   int _visibleActiveCount = 25;
@@ -232,6 +235,96 @@ class HotspotScreenState extends State<HotspotScreen> {
         );
       }
     }
+  }
+
+  void _toggleSelectVoucher(String id) {
+    setState(() {
+      if (_selectedVoucherIds.contains(id)) {
+        _selectedVoucherIds.remove(id);
+      } else {
+        _selectedVoucherIds.add(id);
+      }
+    });
+  }
+
+  void _selectAllVouchers(List<HotspotUser> items) {
+    setState(() {
+      if (_selectedVoucherIds.length == items.length) {
+        _selectedVoucherIds.clear();
+      } else {
+        _selectedVoucherIds.addAll(items.map((e) => e.id));
+      }
+    });
+  }
+
+  void _clearVoucherSelection() {
+    setState(() {
+      _selectedVoucherIds.clear();
+    });
+  }
+
+  void _confirmDeleteSelectedVouchers() {
+    if (_selectedVoucherIds.isEmpty) return;
+    final selectedCount = _selectedVoucherIds.length;
+    final singleUser = selectedCount == 1
+        ? _users.firstWhere((u) => u.id == _selectedVoucherIds.first, orElse: () => _users.first)
+        : null;
+
+    final title = selectedCount == 1 ? 'Hapus Voucher Hotspot?' : 'Hapus $selectedCount Voucher?';
+    final content = selectedCount == 1
+        ? 'Apakah Anda yakin ingin menghapus voucher "${singleUser?.name}" dari router?'
+        : 'Apakah Anda yakin ingin menghapus $selectedCount voucher hotspot terpilih dari router?';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error),
+        title: Text(title),
+        content: Text(content),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final idsToDelete = List<String>.from(_selectedVoucherIds);
+              _clearVoucherSelection();
+
+              int successCount = 0;
+              for (final id in idsToDelete) {
+                try {
+                  await MikrotikApiService.instance.deleteHotspotUser(widget.profile, id);
+                  successCount++;
+                } catch (_) {}
+              }
+
+              if (mounted) {
+                if (successCount == idsToDelete.length) {
+                  ToastBanner.show(
+                    context,
+                    message: selectedCount == 1
+                        ? 'Voucher berhasil dihapus.'
+                        : '$successCount voucher berhasil dihapus.',
+                    type: ToastType.success,
+                  );
+                } else {
+                  ToastBanner.show(
+                    context,
+                    message: '$successCount dari ${idsToDelete.length} voucher berhasil dihapus.',
+                    type: ToastType.info,
+                  );
+                }
+              }
+              refreshData();
+            },
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
   }
 
   // --- M3 Thermal Slip Receipt Modal ---
@@ -814,6 +907,24 @@ class HotspotScreenState extends State<HotspotScreen> {
     );
   }
 
+  List<HotspotUser> _getFilteredVouchers() {
+    return _users.where((u) {
+      if (_searchQuery.isNotEmpty) {
+        final q = _searchQuery.toLowerCase();
+        if (!u.name.toLowerCase().contains(q) && !u.comment.toLowerCase().contains(q)) {
+          return false;
+        }
+      }
+      final exp = HotspotUtils.calculateHotspotUserExpiry(u, _profiles);
+      if (_userFilter == 'active') {
+        return exp.status == HotspotStatus.active || exp.status == HotspotStatus.expiringSoon;
+      } else if (_userFilter == 'waiting' || _userFilter == 'unused') {
+        return exp.status == HotspotStatus.unused;
+      }
+      return true;
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -858,6 +969,9 @@ class HotspotScreenState extends State<HotspotScreen> {
       );
     }
 
+    final isVoucherSelectionMode = _selectedVoucherIds.isNotEmpty && _selectedSubTab == 0;
+    final filteredVouchers = _getFilteredVouchers();
+
     return DefaultTabController(
       length: 3,
       initialIndex: _selectedSubTab,
@@ -866,18 +980,66 @@ class HotspotScreenState extends State<HotspotScreen> {
           return Scaffold(
             body: Column(
               children: [
-                // Official Material 3 Secondary TabBar (Menggantikan SegmentedButton)
-                TabBar(
-                  onTap: (index) => setState(() => _selectedSubTab = index),
-                  indicatorSize: TabBarIndicatorSize.tab,
-                  labelColor: colorScheme.primary,
-                  unselectedLabelColor: colorScheme.onSurfaceVariant,
-                  tabs: [
-                    Tab(text: 'Voucher (${_users.length})'),
-                    Tab(text: 'Aktif (${_activeSessions.length})'),
-                    Tab(text: 'Paket (${_filteredProfiles.length})'),
-                  ],
-                ),
+                // Official Material 3 Secondary TabBar or Pinned Top Selection Bar
+                if (isVoucherSelectionMode)
+                  Container(
+                    color: colorScheme.surfaceContainerHighest,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded),
+                          tooltip: 'Batal Pilih',
+                          onPressed: _clearVoucherSelection,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${_selectedVoucherIds.length} dipilih',
+                          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                        const Spacer(),
+                        TextButton.icon(
+                          onPressed: () => _selectAllVouchers(filteredVouchers),
+                          icon: Icon(
+                            _selectedVoucherIds.length == filteredVouchers.length
+                                ? Icons.deselect_rounded
+                                : Icons.select_all_rounded,
+                            size: 18,
+                          ),
+                          label: Text(_selectedVoucherIds.length == filteredVouchers.length
+                              ? 'Batal Semua'
+                              : 'Pilih Semua'),
+                        ),
+                        const SizedBox(width: 8),
+                        FilledButton.icon(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: colorScheme.error,
+                            foregroundColor: colorScheme.onError,
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          ),
+                          icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                          label: Text('Hapus (${_selectedVoucherIds.length})'),
+                          onPressed: _confirmDeleteSelectedVouchers,
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  TabBar(
+                    onTap: (index) {
+                      _clearVoucherSelection();
+                      setState(() => _selectedSubTab = index);
+                    },
+                    indicatorSize: TabBarIndicatorSize.tab,
+                    labelColor: colorScheme.primary,
+                    unselectedLabelColor: colorScheme.onSurfaceVariant,
+                    tabs: [
+                      Tab(text: 'Voucher (${_users.length})'),
+                      Tab(text: 'Aktif (${_activeSessions.length})'),
+                      Tab(text: 'Paket (${_filteredProfiles.length})'),
+                    ],
+                  ),
 
                 // Content body
                 Expanded(
@@ -889,21 +1051,23 @@ class HotspotScreenState extends State<HotspotScreen> {
                 ),
               ],
             ),
-            floatingActionButton: _selectedSubTab == 0
-                ? FloatingActionButton(
-                    heroTag: 'singleUser',
-                    onPressed: () => _showSingleVoucherModal(),
-                    tooltip: 'Tambah Voucher',
-                    child: const Icon(Icons.add),
-                  )
-                : _selectedSubTab == 2
+            floatingActionButton: isVoucherSelectionMode
+                ? null
+                : (_selectedSubTab == 0
                     ? FloatingActionButton(
-                        heroTag: 'addHotspotProfile',
-                        onPressed: () => _showHotspotProfileModal(),
-                        tooltip: 'Tambah Paket',
+                        heroTag: 'singleUser',
+                        onPressed: () => _showSingleVoucherModal(),
+                        tooltip: 'Tambah Voucher',
                         child: const Icon(Icons.add),
                       )
-                    : null,
+                    : _selectedSubTab == 2
+                        ? FloatingActionButton(
+                            heroTag: 'addHotspotProfile',
+                            onPressed: () => _showHotspotProfileModal(),
+                            tooltip: 'Tambah Paket',
+                            child: const Icon(Icons.add),
+                          )
+                        : null),
           );
         },
       ),
@@ -985,22 +1149,7 @@ class HotspotScreenState extends State<HotspotScreen> {
       return exp.status == HotspotStatus.unused;
     }).length;
 
-    final filtered = _users.where((u) {
-      if (_searchQuery.isNotEmpty) {
-        final q = _searchQuery.toLowerCase();
-        if (!u.name.toLowerCase().contains(q) && !u.comment.toLowerCase().contains(q)) {
-          return false;
-        }
-      }
-      final exp = HotspotUtils.calculateHotspotUserExpiry(u, _profiles);
-      if (_userFilter == 'active') {
-        return exp.status == HotspotStatus.active || exp.status == HotspotStatus.expiringSoon;
-      } else if (_userFilter == 'waiting' || _userFilter == 'unused') {
-        return exp.status == HotspotStatus.unused;
-      }
-      return true;
-    }).toList();
-
+    final filtered = _getFilteredVouchers();
     final visibleItems = filtered.take(_visibleVouchersCount).toList();
 
     return ListView(
@@ -1103,6 +1252,14 @@ class HotspotScreenState extends State<HotspotScreen> {
                 secondaryActionColor: isDark ? const Color(0xFF86B9EC) : colorScheme.primary,
                 secondaryActionBorderColor: isDark ? const Color(0xFF0F4D77) : colorScheme.outline,
                 onEdit: () => _showSingleVoucherModal(editingUser: user),
+                isSelected: _selectedVoucherIds.contains(user.id),
+                isSelectionMode: _selectedVoucherIds.isNotEmpty,
+                onLongPress: () => _toggleSelectVoucher(user.id),
+                onTap: () {
+                  if (_selectedVoucherIds.isNotEmpty) {
+                    _toggleSelectVoucher(user.id);
+                  }
+                },
               ),
             );
           }),

@@ -4,6 +4,7 @@ import 'package:fnet/main.dart';
 import 'package:fnet/models/mikrotik_models.dart';
 import 'package:fnet/screens/dhcp_screen.dart';
 import 'package:fnet/widgets/loading_indicator_m3e.dart';
+import 'package:fnet/widgets/user_card_m3.dart';
 
 void main() {
   testWidgets('MikrotikManagerApp loads login screen when not logged in', (WidgetTester tester) async {
@@ -174,5 +175,28 @@ void main() {
     expect(find.byIcon(Icons.cloud_off_rounded), findsOneWidget);
     expect(find.text('Gagal Menghubungi Router'), findsOneWidget);
     expect(find.text('Coba Lagi'), findsOneWidget);
+  });
+
+  testWidgets('UserCardM3 supports selection mode and long press', (WidgetTester tester) async {
+    bool longPressed = false;
+    await tester.pumpWidget(MaterialApp(
+      theme: ThemeData(useMaterial3: true),
+      home: Scaffold(
+        body: UserCardM3(
+          username: 'test_user',
+          profile: 'default',
+          sisaHari: 'Aktif',
+          isSelected: true,
+          isSelectionMode: true,
+          onLongPress: () => longPressed = true,
+        ),
+      ),
+    ));
+
+    expect(find.text('test_user'), findsOneWidget);
+    expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
+
+    await tester.longPress(find.text('test_user'));
+    expect(longPressed, isTrue);
   });
 }

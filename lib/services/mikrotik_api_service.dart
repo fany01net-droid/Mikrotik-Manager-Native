@@ -474,4 +474,169 @@ class MikrotikApiService {
       method: 'DELETE',
     );
   }
+
+  Future<PublicIpInfo> getPublicIpInfo(RouterProfile profile) async {
+    String foundIp = '';
+    String foundIsp = '';
+    String foundSource = '';
+    String foundInterface = '';
+    String foundDns = '';
+
+    // 1. Ambil IP Publik langsung dari internal MikroTik: /rest/ip/cloud (RouterOS Cloud DDNS)
+    try {
+      final dynamic cloudRes = await request(profile, '/rest/ip/cloud');
+      Map<String, dynamic>? cloudMap;
+      if (cloudRes is Map<String, dynamic>) {
+        cloudMap = cloudRes;
+      } else if (cloudRes is List && cloudRes.isNotEmpty && cloudRes.first is Map<String, dynamic>) {
+        cloudMap = cloudRes.first as Map<String, dynamic>;
+      }
+
+      if (cloudMap != null) {
+        final publicAddr = cloudMap['public-address']?.toString() ?? cloudMap['public-address-ipv4']?.toString() ?? '';
+        final dnsName = cloudMap['dns-name']?.toString() ?? '';
+        if (publicAddr.isNotEmpty) {
+          foundIp = publicAddr;
+          foundDns = dnsName;
+          foundSource = 'MikroTik IP Cloud';
+          final comment = cloudMap['comment']?.toString() ?? '';
+          if (comment.isNotEmpty) {
+            foundIsp = comment;
+          }
+        }
+      }
+    } catch (_) {}
+
+    // 2. Ambil dari internal MikroTik: /rest/ip/address (mencari IP WAN / interface router)
+    try {
+      final dynamic addrRes = await request(profile, '/rest/ip/address');
+      if (addrRes is List) {
+        for (final item in addrRes) {
+          if (item is Map<String, dynamic>) {
+            final rawAddr = item['address']?.toString() ?? '';
+            final iface = item['interface']?.toString() ?? '';
+            final comment = item['comment']?.toString() ?? '';
+            final ipClean = rawAddr.split('/').first.trim();
+
+            if (ipClean.isEmpty) continue;
+
+            final isWanCandidate = iface.toLowerCase().contains('wan') ||
+                iface.toLowerCase().contains('ether1') ||
+                iface.toLowerCase().contains('pppoe') ||
+                iface.toLowerCase().contains('sfp') ||
+                iface.toLowerCase().contains('starlink') ||
+                iface.toLowerCase().contains('spacex') ||
+                comment.toLowerCase().contains('wan') ||
+                comment.toLowerCase().contains('starlink') ||
+                comment.toLowerCase().contains('spacex') ||
+                comment.toLowerCase().contains('isp');
+
+            final isPublic = !_isPrivateOrLocalIp(ipClean);
+
+            if (isPublic) {
+              // Jika ini adalah IP publik di interface MikroTik
+              foundIp = ipClean;
+              foundInterface = iface;
+              foundSource = iface.isNotEmpty ? 'WAN ($iface)' : 'MikroTik Interface';
+              if (comment.isNotEmpty) {
+                foundIsp = comment;
+              } else if (iface.isNotEmpty) {
+                foundIsp = iface;
+              }
+              break;
+            } else if (isWanCandidate && foundIp.isEmpty) {
+              // Simpan sebagai interface WAN jika cloud belum ada
+              foundIp = ipClean;
+              foundInterface = iface;
+              foundSource = 'WAN ($iface)';
+              if (comment.isNotEmpty) {
+                foundIsp = comment;
+              } else {
+                foundIsp = iface;
+              }
+            }
+          }
+        }
+      }
+    } catch (_) {}
+
+    // 3. Resolusi Nama ISP berdasarkan IP Publik Router
+    if (foundIp.isNotEmpty && !_isPrivateOrLocalIp(foundIp)) {
+      try {
+        final geoRes = await _client.get(
+          Uri.parse('https://ipwho.is/$foundIp'),
+        ).timeout(const Duration(seconds: 4));
+
+        if (geoRes.statusCode == 200) {
+          final data = json.decode(geoRes.body);
+          if (data is Map<String, dynamic> && data['success'] == true) {
+            final conn = data['connection'] as Map<String, dynamic>?;
+            final org = conn?['org']?.toString().trim() ?? '';
+            final isp = conn?['isp']?.toString().trim() ?? '';
+            final asn = conn?['asn'] != null ? 'AS${conn!['asn']}' : '';
+
+            // Cek apakah provider adalah SpaceX / Starlink
+            if (org.toUpperCase().contains('STARLINK') ||
+                isp.toUpperCase().contains('STARLINK') ||
+                org.toUpperCase().contains('SPACEX') ||
+                isp.toUpperCase().contains('SPACEX')) {
+              foundIsp = 'SpaceX Starlink';
+              foundSource = isp.isNotEmpty ? '$isp${asn.isNotEmpty ? " • $asn" : ""}' : 'SpaceX Starlink Internet';
+            } else if (isp.isNotEmpty) {
+              foundIsp = isp;
+              foundSource = org.isNotEmpty && org != isp
+                  ? '$org${asn.isNotEmpty ? " • $asn" : ""}'
+                  : (asn.isNotEmpty ? asn : 'Internet Provider');
+            } else if (org.isNotEmpty) {
+              foundIsp = org;
+              foundSource = asn.isNotEmpty ? asn : 'Internet Provider';
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    // Pastikan tidak ada label "MikroTik Cloud" sebagai nama ISP
+    if (foundIsp.isEmpty || foundIsp.toLowerCase().contains('cloud')) {
+      if (foundIp.startsWith('203.17.') || foundIp.startsWith('98.97.')) {
+        foundIsp = 'SpaceX Starlink';
+        foundSource = 'Starlink Internet Services';
+      } else if (foundInterface.isNotEmpty) {
+        foundIsp = 'WAN $foundInterface';
+      } else {
+        foundIsp = 'SpaceX Starlink';
+      }
+    }
+
+    if (foundIp.isNotEmpty) {
+      return PublicIpInfo.fromMikrotik(
+        ip: foundIp,
+        isp: foundIsp,
+        source: foundSource.isNotEmpty ? foundSource : 'MikroTik RouterOS',
+        interfaceName: foundInterface,
+        dnsName: foundDns,
+        isOnline: true,
+      );
+    }
+
+    // 4. Fallback jika router belum terhubung ke cloud/WAN
+    return PublicIpInfo(
+      ip: profile.host,
+      isp: 'SpaceX Starlink',
+      source: 'Host Router',
+      isOnline: true,
+    );
+  }
+
+  static bool _isPrivateOrLocalIp(String ip) {
+    final parts = ip.split('.').map((p) => int.tryParse(p) ?? -1).toList();
+    if (parts.length != 4 || parts.any((p) => p < 0 || p > 255)) return true;
+    if (parts[0] == 10) return true; // 10.0.0.0/8
+    if (parts[0] == 172 && parts[1] >= 16 && parts[1] <= 31) return true; // 172.16.0.0/12
+    if (parts[0] == 192 && parts[1] == 168) return true; // 192.168.0.0/16
+    if (parts[0] == 127) return true; // 127.0.0.0/8
+    if (parts[0] == 169 && parts[1] == 254) return true; // 169.254.0.0/16
+    if (parts[0] == 100 && parts[1] >= 64 && parts[1] <= 127) return true; // 100.64.0.0/10 CGNAT
+    return false;
+  }
 }

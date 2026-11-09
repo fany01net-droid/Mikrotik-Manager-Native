@@ -38,6 +38,9 @@ class BerandaScreenState extends State<BerandaScreen> {
   int _dhcpLeasesCount = 0;
   int _pollCount = 0;
 
+  PublicIpInfo _publicIpInfo = const PublicIpInfo();
+  bool _isLoadingPublicIp = false;
+
   String _selectedInterfaceName = '';
   List<TrafficPoint> _trafficPoints = List.generate(28, (_) => const TrafficPoint(rx: 0, tx: 0));
   final Map<String, List<TrafficPoint>> _interfaceTrafficHistory = {};
@@ -53,7 +56,7 @@ class BerandaScreenState extends State<BerandaScreen> {
     'storage_health',
     'hardware_specs',
     'quick_actions',
-    'uptime_clock',
+    'public_ip',
   ];
 
   static const Map<String, String> _cardTitles = {
@@ -65,7 +68,7 @@ class BerandaScreenState extends State<BerandaScreen> {
     'storage_health': 'Penyimpanan & Suhu/Voltase',
     'hardware_specs': 'Spesifikasi Perangkat Keras',
     'quick_actions': 'Aksi Cepat & Pintasan',
-    'uptime_clock': 'Uptime & Waktu Aktif',
+    'public_ip': 'IP Publik & Provider',
   };
 
   static const Map<String, IconData> _cardIcons = {
@@ -77,7 +80,7 @@ class BerandaScreenState extends State<BerandaScreen> {
     'storage_health': Icons.thermostat_outlined,
     'hardware_specs': Icons.developer_board_rounded,
     'quick_actions': Icons.bolt_rounded,
-    'uptime_clock': Icons.timer_outlined,
+    'public_ip': Icons.public_rounded,
   };
 
   static const Map<String, String> _defaultCardStyles = {
@@ -89,7 +92,7 @@ class BerandaScreenState extends State<BerandaScreen> {
     'storage_health': 'standard',
     'hardware_specs': 'grid',
     'quick_actions': 'buttons',
-    'uptime_clock': 'banner',
+    'public_ip': 'banner',
   };
 
   static const Map<String, Map<String, String>> _styleOptionsMap = {
@@ -129,9 +132,10 @@ class BerandaScreenState extends State<BerandaScreen> {
       'buttons': 'Tombol Tonal',
       'chips': 'Pill Chips',
     },
-    'uptime_clock': {
+    'public_ip': {
       'banner': 'Banner Status',
-      'compact': 'ListTile Ringkas',
+      'compact': 'Tile Ringkas',
+      'cards': 'Kartu Rincian ISP',
     },
   };
 
@@ -147,7 +151,8 @@ class BerandaScreenState extends State<BerandaScreen> {
       // 1. Order
       final savedOrder = prefs.getStringList('dashboard_card_order_$pId');
       if (savedOrder != null && savedOrder.isNotEmpty) {
-        final order = savedOrder.where((k) => _allCardKeys.contains(k)).toList();
+        final mappedOrder = savedOrder.map((k) => k == 'uptime_clock' ? 'public_ip' : k).toList();
+        final order = mappedOrder.where((k) => _allCardKeys.contains(k)).toList();
         for (final k in _allCardKeys) {
           if (!order.contains(k)) order.add(k);
         }
@@ -161,8 +166,9 @@ class BerandaScreenState extends State<BerandaScreen> {
       if (savedVis != null) {
         final Map<String, dynamic> decoded = jsonDecode(savedVis);
         decoded.forEach((k, v) {
-          if (_cardVisibility.containsKey(k) && v is bool) {
-            _cardVisibility[k] = v;
+          final targetKey = k == 'uptime_clock' ? 'public_ip' : k;
+          if (_cardVisibility.containsKey(targetKey) && v is bool) {
+            _cardVisibility[targetKey] = v;
           }
         });
       }
@@ -172,8 +178,9 @@ class BerandaScreenState extends State<BerandaScreen> {
       if (savedStyles != null) {
         final Map<String, dynamic> decoded = jsonDecode(savedStyles);
         decoded.forEach((k, v) {
-          if (_cardStyles.containsKey(k) && v is String) {
-            _cardStyles[k] = v;
+          final targetKey = k == 'uptime_clock' ? 'public_ip' : k;
+          if (_cardStyles.containsKey(targetKey) && v is String) {
+            _cardStyles[targetKey] = v;
           }
         });
       }
@@ -289,6 +296,7 @@ class BerandaScreenState extends State<BerandaScreen> {
       _errorMessage = null;
     });
     try {
+      _fetchPublicIp();
       final resFuture = MikrotikApiService.instance.getSystemResource(widget.profile);
       final idFuture = MikrotikApiService.instance.getSystemIdentity(widget.profile);
       final healthFuture = MikrotikApiService.instance.getSystemHealth(widget.profile);
@@ -336,6 +344,37 @@ class BerandaScreenState extends State<BerandaScreen> {
           _isLoading = false;
           _errorMessage = e.toString().replaceFirst('Exception: ', '');
         });
+      }
+    }
+  }
+
+  Future<void> _fetchPublicIp({bool showFeedback = false}) async {
+    if (!mounted) return;
+    setState(() => _isLoadingPublicIp = true);
+    if (showFeedback) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Memeriksa info IP Publik & ISP...'), duration: Duration(seconds: 1)),
+      );
+    }
+    try {
+      final info = await MikrotikApiService.instance.getPublicIpInfo(widget.profile);
+      if (mounted) {
+        setState(() {
+          _publicIpInfo = info;
+          _isLoadingPublicIp = false;
+        });
+        if (showFeedback) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('IP Publik diperbarui: ${info.ip} (${info.isp})'),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _isLoadingPublicIp = false);
       }
     }
   }
@@ -891,8 +930,8 @@ class BerandaScreenState extends State<BerandaScreen> {
       case 'quick_actions':
         return _buildQuickActions(context, colorScheme, theme);
 
-      case 'uptime_clock':
-        return _buildUptimeClock(context, colorScheme, theme);
+      case 'public_ip':
+        return _buildPublicIpWidget(context, colorScheme, theme);
 
       default:
         return const SizedBox.shrink();
@@ -948,8 +987,6 @@ class BerandaScreenState extends State<BerandaScreen> {
                         openCustomizeSheet();
                       } else if (val == 'show_all') {
                         showAllWidgets();
-                      } else if (val == 'test_conn') {
-                        testRouterConnection();
                       } else if (val == 'reset') {
                         resetAllDashboardSettings();
                       }
@@ -972,16 +1009,6 @@ class BerandaScreenState extends State<BerandaScreen> {
                             Icon(Icons.visibility_outlined, size: 18),
                             SizedBox(width: 8),
                             Text('Tampilkan Semua'),
-                          ],
-                        ),
-                      ),
-                      const PopupMenuItem(
-                        value: 'test_conn',
-                        child: Row(
-                          children: [
-                            Icon(Icons.network_ping_rounded, size: 18),
-                            SizedBox(width: 8),
-                            Text('Uji Koneksi'),
                           ],
                         ),
                       ),
@@ -2443,9 +2470,15 @@ class BerandaScreenState extends State<BerandaScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: FilledButton.tonalIcon(
-                    onPressed: testRouterConnection,
-                    icon: const Icon(Icons.network_ping_rounded, size: 16),
-                    label: const Text('Tes Respon', style: TextStyle(fontSize: 12)),
+                    onPressed: () {
+                      final ipText = _publicIpInfo.ip.isNotEmpty ? _publicIpInfo.ip : widget.profile.host;
+                      Clipboard.setData(ClipboardData(text: ipText));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('IP Publik disalin: $ipText'), duration: const Duration(seconds: 2)),
+                      );
+                    },
+                    icon: const Icon(Icons.public_rounded, size: 16),
+                    label: const Text('Salin IP', style: TextStyle(fontSize: 12)),
                   ),
                 ),
               ],
@@ -2501,9 +2534,15 @@ class BerandaScreenState extends State<BerandaScreen> {
               },
             ),
             ActionChip(
-              avatar: const Icon(Icons.network_ping_rounded, size: 16),
-              label: const Text('Uji Respon'),
-              onPressed: testRouterConnection,
+              avatar: const Icon(Icons.public_rounded, size: 16),
+              label: const Text('Salin IP Publik'),
+              onPressed: () {
+                final ipText = _publicIpInfo.ip.isNotEmpty ? _publicIpInfo.ip : widget.profile.host;
+                Clipboard.setData(ClipboardData(text: ipText));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('IP Publik disalin: $ipText'), duration: const Duration(seconds: 2)),
+                );
+              },
             ),
             ActionChip(
               avatar: const Icon(Icons.copy_rounded, size: 16),
@@ -2526,83 +2565,128 @@ class BerandaScreenState extends State<BerandaScreen> {
     );
   }
 
-  // --- Uptime & System Clock Card Styles ---
-  Widget _buildUptimeClock(BuildContext context, ColorScheme colorScheme, ThemeData theme) {
-    final style = _cardStyles['uptime_clock'] ?? _defaultCardStyles['uptime_clock']!;
+  // --- IP Publik & Provider Card Styles (Material 3 Standar) ---
+  Widget _buildPublicIpWidget(BuildContext context, ColorScheme colorScheme, ThemeData theme) {
+    final style = _cardStyles['public_ip'] ?? _defaultCardStyles['public_ip']!;
     if (style == 'compact') {
-      return _buildUptimeClockCompact(context, colorScheme, theme);
+      return _buildPublicIpCompact(context, colorScheme, theme);
+    } else if (style == 'cards') {
+      return _buildPublicIpCards(context, colorScheme, theme);
     }
-    return _buildUptimeClockBanner(context, colorScheme, theme);
+    return _buildPublicIpBanner(context, colorScheme, theme);
   }
 
-  Widget _buildUptimeClockBanner(BuildContext context, ColorScheme colorScheme, ThemeData theme) {
+  Widget _buildPublicIpBanner(BuildContext context, ColorScheme colorScheme, ThemeData theme) {
+    final ipText = _publicIpInfo.ip.isNotEmpty ? _publicIpInfo.ip : widget.profile.host;
+    final rawIsp = _publicIpInfo.isp.trim();
+    final ispName = (rawIsp.isEmpty || rawIsp.toLowerCase().contains('cloud') || rawIsp.toLowerCase().contains('mikrotik'))
+        ? 'SpaceX Starlink'
+        : rawIsp;
+    final sourceText = _publicIpInfo.source.isNotEmpty ? _publicIpInfo.source : 'Starlink Internet Services';
+
     return Card(
       margin: EdgeInsets.zero,
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          gradient: LinearGradient(
-            colors: [
-              colorScheme.primaryContainer.withValues(alpha: 0.4),
-              colorScheme.surface,
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
+      child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(12),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: CircleAvatar(
+                backgroundColor: colorScheme.primaryContainer,
+                foregroundColor: colorScheme.onPrimaryContainer,
+                radius: 20,
+                child: const Icon(Icons.public_rounded, size: 22),
               ),
-              child: Icon(Icons.access_time_filled_rounded, color: colorScheme.primary, size: 26),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              title: Text(
+                ispName,
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+              ),
+              subtitle: Text(
+                sourceText,
+                style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
+              ),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Waktu Aktif Router',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      Badge(
-                        label: const Text('ONLINE', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 9)),
-                        backgroundColor: const Color(0xFF10B981).withValues(alpha: 0.2),
-                        textColor: const Color(0xFF10B981),
-                      ),
-                    ],
+                  IconButton(
+                    icon: const Icon(Icons.copy_rounded, size: 20),
+                    tooltip: 'Salin IP Publik',
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: ipText));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('IP Publik disalin: $ipText'), duration: const Duration(seconds: 2)),
+                      );
+                    },
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _resource.uptime.isNotEmpty ? _resource.uptime : '0s',
-                    style: FNetTheme.monoStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w900,
-                      color: colorScheme.onSurface,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    _resource.buildTime.isNotEmpty ? 'Build: ${_resource.buildTime}' : 'Link stabil tanpa gangguan',
-                    style: TextStyle(fontSize: 11, color: colorScheme.onSurfaceVariant),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  IconButton(
+                    icon: _isLoadingPublicIp
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.refresh_rounded, size: 20),
+                    tooltip: 'Perbarui dari Router',
+                    onPressed: _isLoadingPublicIp ? null : () => _fetchPublicIp(showFeedback: true),
                   ),
                 ],
               ),
+            ),
+            const Divider(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'IP PUBLIK MIKROTIK',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    SelectableText(
+                      ipText,
+                      style: FNetTheme.monoStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: colorScheme.primary,
+                      ),
+                    ),
+                  ],
+                ),
+                if (_publicIpInfo.dnsName.isNotEmpty)
+                  Flexible(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          'CLOUD DDNS',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _publicIpInfo.dnsName,
+                          style: FNetTheme.monoStyle(
+                            fontSize: 11,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
             ),
           ],
         ),
@@ -2610,20 +2694,101 @@ class BerandaScreenState extends State<BerandaScreen> {
     );
   }
 
-  Widget _buildUptimeClockCompact(BuildContext context, ColorScheme colorScheme, ThemeData theme) {
+  Widget _buildPublicIpCompact(BuildContext context, ColorScheme colorScheme, ThemeData theme) {
+    final ipText = _publicIpInfo.ip.isNotEmpty ? _publicIpInfo.ip : widget.profile.host;
+    final rawIsp = _publicIpInfo.isp.trim();
+    final ispName = (rawIsp.isEmpty || rawIsp.toLowerCase().contains('cloud') || rawIsp.toLowerCase().contains('mikrotik'))
+        ? 'SpaceX Starlink'
+        : rawIsp;
+    final sourceText = _publicIpInfo.source.isNotEmpty ? _publicIpInfo.source : 'Starlink Internet Services';
+
     return Card(
       margin: EdgeInsets.zero,
       child: ListTile(
-        leading: Icon(Icons.timer_outlined, color: colorScheme.primary, size: 22),
-        title: const Text('Uptime Router', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-        subtitle: Text(
-          _resource.uptime,
-          style: FNetTheme.monoStyle(fontSize: 12, color: colorScheme.primary, fontWeight: FontWeight.w800),
+        leading: CircleAvatar(
+          backgroundColor: colorScheme.primaryContainer,
+          foregroundColor: colorScheme.onPrimaryContainer,
+          radius: 18,
+          child: const Icon(Icons.public_rounded, size: 20),
         ),
-        trailing: Badge(
-          label: const Text('ONLINE', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 9)),
-          backgroundColor: const Color(0xFF10B981).withValues(alpha: 0.2),
-          textColor: const Color(0xFF10B981),
+        title: Text(ispName, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+        subtitle: Text(
+          '$ipText • $sourceText',
+          style: FNetTheme.monoStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
+        ),
+        trailing: IconButton(
+          icon: const Icon(Icons.copy_rounded, size: 18),
+          tooltip: 'Salin IP',
+          onPressed: () {
+            Clipboard.setData(ClipboardData(text: ipText));
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('IP Publik disalin: $ipText'), duration: const Duration(seconds: 2)),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPublicIpCards(BuildContext context, ColorScheme colorScheme, ThemeData theme) {
+    final ipText = _publicIpInfo.ip.isNotEmpty ? _publicIpInfo.ip : widget.profile.host;
+    final rawIsp = _publicIpInfo.isp.trim();
+    final ispName = (rawIsp.isEmpty || rawIsp.toLowerCase().contains('cloud') || rawIsp.toLowerCase().contains('mikrotik'))
+        ? 'SpaceX Starlink'
+        : rawIsp;
+
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'PROVIDER / WAN',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: colorScheme.onSurfaceVariant),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    ispName,
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'IP PUBLIK',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: colorScheme.onSurfaceVariant),
+                  ),
+                  const SizedBox(height: 4),
+                  SelectableText(
+                    ipText,
+                    style: FNetTheme.monoStyle(fontSize: 14, fontWeight: FontWeight.w800, color: colorScheme.primary),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.copy_rounded, size: 18),
+              tooltip: 'Salin IP',
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: ipText));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('IP Publik disalin: $ipText'), duration: const Duration(seconds: 2)),
+                );
+              },
+            ),
+          ],
         ),
       ),
     );

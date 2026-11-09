@@ -262,8 +262,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                         _berandaKey.currentState?.openCustomizeSheet();
                       } else if (val == 'show_all') {
                         _berandaKey.currentState?.showAllWidgets();
-                      } else if (val == 'test_conn') {
-                        _berandaKey.currentState?.testRouterConnection();
                       } else if (val == 'reset') {
                         _berandaKey.currentState?.resetAllDashboardSettings();
                       }
@@ -286,16 +284,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                             Icon(Icons.visibility_outlined, size: 20),
                             SizedBox(width: 10),
                             Text('Tampilkan Semua Widget'),
-                          ],
-                        ),
-                      ),
-                      const PopupMenuItem(
-                        value: 'test_conn',
-                        child: Row(
-                          children: [
-                            Icon(Icons.network_ping_rounded, size: 20),
-                            SizedBox(width: 10),
-                            Text('Uji Respon Koneksi'),
                           ],
                         ),
                       ),

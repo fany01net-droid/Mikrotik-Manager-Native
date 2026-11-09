@@ -556,3 +556,40 @@ class MasterAuth {
     };
   }
 }
+
+class PublicIpInfo {
+  final String ip;
+  final String isp;
+  final String source;
+  final String interfaceName;
+  final String dnsName;
+  final bool isOnline;
+
+  const PublicIpInfo({
+    this.ip = '',
+    this.isp = '',
+    this.source = '',
+    this.interfaceName = '',
+    this.dnsName = '',
+    this.isOnline = false,
+  });
+
+  factory PublicIpInfo.fromMikrotik({
+    required String ip,
+    String isp = '',
+    String source = 'MikroTik Router',
+    String interfaceName = '',
+    String dnsName = '',
+    bool isOnline = true,
+  }) {
+    return PublicIpInfo(
+      ip: ip,
+      isp: isp.isNotEmpty ? isp : 'MikroTik WAN',
+      source: source,
+      interfaceName: interfaceName,
+      dnsName: dnsName,
+      isOnline: isOnline,
+    );
+  }
+}
+
