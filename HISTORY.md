@@ -150,6 +150,20 @@ Dokumen ini mencatat riwayat percakapan, keputusan arsitektur, dan evolusi penge
     - Dilengkapi aksi lengkap: tombol *Batal Pilih (`X`)*, indikator *"X dipilih"*, tombol *Pilih Semua / Batal Semua*, serta tombol aksi utama **`Hapus`** (`FilledButton` Material 3 warna error).
   - **Penerapan Seragam**: Diterapkan konsisten di modul DHCP Leases, Voucher Hotspot, dan Pelanggan PPPoE.
 
+---
+
+### 12. Penerapan Hold-to-Select & Option Hapus pada Paket Hotspot & Paket PPPoE
+- **Komponen**: [`lib/screens/hotspot_screen.dart`](lib/screens/hotspot_screen.dart), [`lib/screens/pppoe_screen.dart`](lib/screens/pppoe_screen.dart)
+- **Implementasi**:
+  - **Paket Hotspot (Hotspot Profiles)**:
+    - Menambahkan state multi-seleksi `_selectedProfileIds` pada tab Paket Hotspot.
+    - Menekan dan menahan kartu paket (*long press / hold*) mengaktifkan mode seleksi dengan highlight border dan ikon *check circle* Material 3.
+    - Menampilkan bilah aksi atas terkunci (*pinned top bar*) berisi jumlah paket terpilih, tombol *Pilih Semua / Batal Semua*, serta tombol **Hapus** (`FilledButton` M3 error) lengkap dengan deteksi jumlah voucher yang sedang memakai paket tersebut.
+  - **Paket PPPoE (PPP Profiles)**:
+    - Menambahkan mekanisme hold-to-select serupa pada tab Paket PPPoE.
+    - Konfirmasi dialog penghapusan aman dengan peringatan jika paket masih digunakan oleh pelanggan aktif.
+    - FAB (*Tambah Paket*) otomatis disembunyikan saat mode seleksi aktif.
+
 
 
 

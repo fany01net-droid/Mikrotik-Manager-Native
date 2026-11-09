@@ -46,6 +46,7 @@ class HotspotScreenState extends State<HotspotScreen> {
 
   // Multi-select / Hold-to-select support
   final Set<String> _selectedVoucherIds = {};
+  final Set<String> _selectedProfileIds = {};
 
   // Lazy Load Chunking (25 data per chunk) & Scroll Controllers
   int _visibleVouchersCount = 25;
@@ -314,6 +315,105 @@ class HotspotScreenState extends State<HotspotScreen> {
                   ToastBanner.show(
                     context,
                     message: '$successCount dari ${idsToDelete.length} voucher berhasil dihapus.',
+                    type: ToastType.info,
+                  );
+                }
+              }
+              refreshData();
+            },
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _toggleSelectProfile(String id) {
+    setState(() {
+      if (_selectedProfileIds.contains(id)) {
+        _selectedProfileIds.remove(id);
+      } else {
+        _selectedProfileIds.add(id);
+      }
+    });
+  }
+
+  void _selectAllProfiles(List<HotspotProfile> items) {
+    setState(() {
+      final ids = items.map((e) => e.id.isNotEmpty ? e.id : e.name).toList();
+      if (_selectedProfileIds.length == ids.length) {
+        _selectedProfileIds.clear();
+      } else {
+        _selectedProfileIds.addAll(ids);
+      }
+    });
+  }
+
+  void _clearProfileSelection() {
+    setState(() {
+      _selectedProfileIds.clear();
+    });
+  }
+
+  void _confirmDeleteSelectedProfiles(List<HotspotProfile> allProfiles) {
+    if (_selectedProfileIds.isEmpty) return;
+    final selectedCount = _selectedProfileIds.length;
+    final singleProfile = selectedCount == 1
+        ? allProfiles.firstWhere(
+            (p) => (p.id.isNotEmpty ? p.id : p.name) == _selectedProfileIds.first,
+            orElse: () => allProfiles.first,
+          )
+        : null;
+
+    final inUseCount = allProfiles
+        .where((p) => _selectedProfileIds.contains(p.id.isNotEmpty ? p.id : p.name))
+        .map((p) => _users.where((u) => u.profile == p.name).length)
+        .fold(0, (a, b) => a + b);
+
+    final title = selectedCount == 1 ? 'Hapus Paket Hotspot?' : 'Hapus $selectedCount Paket Hotspot?';
+    final content = selectedCount == 1
+        ? 'Apakah Anda yakin ingin menghapus paket "${singleProfile?.name}" dari router?${inUseCount > 0 ? "\n\nPerhatian: Paket ini masih digunakan oleh $inUseCount voucher." : ""}'
+        : 'Apakah Anda yakin ingin menghapus $selectedCount paket hotspot terpilih dari router?${inUseCount > 0 ? "\n\nPerhatian: Beberapa paket masih digunakan oleh $inUseCount voucher." : ""}';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error),
+        title: Text(title),
+        content: Text(content),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final idsToDelete = List<String>.from(_selectedProfileIds);
+              _clearProfileSelection();
+
+              int successCount = 0;
+              for (final id in idsToDelete) {
+                try {
+                  await MikrotikApiService.instance.deleteHotspotProfile(widget.profile, id);
+                  successCount++;
+                } catch (_) {}
+              }
+
+              if (mounted) {
+                if (successCount == idsToDelete.length) {
+                  ToastBanner.show(
+                    context,
+                    message: selectedCount == 1
+                        ? 'Paket hotspot berhasil dihapus.'
+                        : '$successCount paket hotspot berhasil dihapus.',
+                    type: ToastType.success,
+                  );
+                } else {
+                  ToastBanner.show(
+                    context,
+                    message: '$successCount dari ${idsToDelete.length} paket hotspot berhasil dihapus.',
                     type: ToastType.info,
                   );
                 }
@@ -970,7 +1070,9 @@ class HotspotScreenState extends State<HotspotScreen> {
     }
 
     final isVoucherSelectionMode = _selectedVoucherIds.isNotEmpty && _selectedSubTab == 0;
+    final isProfileSelectionMode = _selectedProfileIds.isNotEmpty && _selectedSubTab == 2;
     final filteredVouchers = _getFilteredVouchers();
+    final filteredProfiles = _filteredProfiles;
 
     return DefaultTabController(
       length: 3,
@@ -1025,10 +1127,55 @@ class HotspotScreenState extends State<HotspotScreen> {
                       ],
                     ),
                   )
+                else if (isProfileSelectionMode)
+                  Container(
+                    color: colorScheme.surfaceContainerHighest,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded),
+                          tooltip: 'Batal Pilih',
+                          onPressed: _clearProfileSelection,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${_selectedProfileIds.length} dipilih',
+                          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                        const Spacer(),
+                        TextButton.icon(
+                          onPressed: () => _selectAllProfiles(filteredProfiles),
+                          icon: Icon(
+                            _selectedProfileIds.length == filteredProfiles.length
+                                ? Icons.deselect_rounded
+                                : Icons.select_all_rounded,
+                            size: 18,
+                          ),
+                          label: Text(_selectedProfileIds.length == filteredProfiles.length
+                              ? 'Batal Semua'
+                              : 'Pilih Semua'),
+                        ),
+                        const SizedBox(width: 8),
+                        FilledButton.icon(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: colorScheme.error,
+                            foregroundColor: colorScheme.onError,
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          ),
+                          icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                          label: Text('Hapus (${_selectedProfileIds.length})'),
+                          onPressed: () => _confirmDeleteSelectedProfiles(filteredProfiles),
+                        ),
+                      ],
+                    ),
+                  )
                 else
                   TabBar(
                     onTap: (index) {
                       _clearVoucherSelection();
+                      _clearProfileSelection();
                       setState(() => _selectedSubTab = index);
                     },
                     indicatorSize: TabBarIndicatorSize.tab,
@@ -1051,7 +1198,7 @@ class HotspotScreenState extends State<HotspotScreen> {
                 ),
               ],
             ),
-            floatingActionButton: isVoucherSelectionMode
+            floatingActionButton: (isVoucherSelectionMode || isProfileSelectionMode)
                 ? null
                 : (_selectedSubTab == 0
                     ? FloatingActionButton(
@@ -1481,11 +1628,35 @@ class HotspotScreenState extends State<HotspotScreen> {
         else ...[
           ...visibleItems.map((p) {
             final voucherCount = _users.where((u) => u.profile == p.name).length;
+            final effectiveId = p.id.isNotEmpty ? p.id : p.name;
+            final isSelected = _selectedProfileIds.contains(effectiveId);
+            final isSelectionMode = _selectedProfileIds.isNotEmpty;
+            final isDark = theme.brightness == Brightness.dark;
+
             return Card(
               margin: const EdgeInsets.only(bottom: 10),
+              color: isSelected
+                  ? (isDark ? const Color(0xFF132838) : colorScheme.primaryContainer.withValues(alpha: 0.25))
+                  : null,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(
+                  color: isSelected
+                      ? colorScheme.primary
+                      : (isDark ? const Color(0xFF1E2833) : colorScheme.outlineVariant),
+                  width: isSelected ? 2 : 1,
+                ),
+              ),
               child: InkWell(
-                borderRadius: BorderRadius.circular(12),
-                onTap: () => _showHotspotProfileModal(editingProfile: p),
+                borderRadius: BorderRadius.circular(16),
+                onLongPress: () => _toggleSelectProfile(effectiveId),
+                onTap: () {
+                  if (isSelectionMode) {
+                    _toggleSelectProfile(effectiveId);
+                  } else {
+                    _showHotspotProfileModal(editingProfile: p);
+                  }
+                },
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
@@ -1494,6 +1665,14 @@ class HotspotScreenState extends State<HotspotScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
+                          if (isSelectionMode) ...[
+                            Icon(
+                              isSelected ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+                              color: isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                              size: 22,
+                            ),
+                            const SizedBox(width: 12),
+                          ],
                           Expanded(
                             child: Text(
                               p.name,
@@ -1506,13 +1685,15 @@ class HotspotScreenState extends State<HotspotScreen> {
                             textColor: colorScheme.onPrimaryContainer,
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           ),
-                          const SizedBox(width: 4),
-                          IconButton(
-                            icon: const Icon(Icons.edit_outlined, size: 20),
-                            color: colorScheme.onSurfaceVariant,
-                            tooltip: 'Edit Paket',
-                            onPressed: () => _showHotspotProfileModal(editingProfile: p),
-                          ),
+                          if (!isSelectionMode) ...[
+                            const SizedBox(width: 4),
+                            IconButton(
+                              icon: const Icon(Icons.edit_outlined, size: 20),
+                              color: colorScheme.onSurfaceVariant,
+                              tooltip: 'Edit Paket',
+                              onPressed: () => _showHotspotProfileModal(editingProfile: p),
+                            ),
+                          ],
                         ],
                       ),
                       const SizedBox(height: 6),
