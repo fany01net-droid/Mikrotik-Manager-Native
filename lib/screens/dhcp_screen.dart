@@ -10,13 +10,13 @@ import '../widgets/toast_banner.dart';
 class DhcpScreen extends StatefulWidget {
   final RouterProfile profile;
   final String searchQuery;
-  final void Function({required String name, required String ip, required String comment}) onConvertToPppoe;
+  final void Function({required String name, required String ip, required String comment})? onConvertToPppoe;
 
   const DhcpScreen({
     super.key,
     required this.profile,
     this.searchQuery = '',
-    required this.onConvertToPppoe,
+    this.onConvertToPppoe,
   });
 
   @override
@@ -325,115 +325,211 @@ class DhcpScreenState extends State<DhcpScreen> {
                     )
                   else ...[
                     ...visibleItems.map((lease) {
-                      final vendor = FormatUtils.detectDeviceVendor(lease.macAddress, lease.hostName);
+                      final isDark = theme.brightness == Brightness.dark;
+                      final cardBg = isDark ? const Color(0xFF0F151B) : colorScheme.surface;
+                      final borderColor = isDark ? const Color(0xFF1E2833) : colorScheme.outlineVariant;
+                      final titleColor = isDark ? Colors.white : colorScheme.onSurface;
+                      final subtitleColor = isDark ? const Color(0xFF9EA7B2) : colorScheme.onSurfaceVariant;
+                      final dividerColor = isDark ? const Color(0xFF1E2833) : colorScheme.outlineVariant;
+
                       final isBound = lease.status == 'bound';
+                      final vendor = FormatUtils.detectDeviceVendor(lease.macAddress, lease.hostName);
+                      final displayName = lease.hostName.isNotEmpty ? lease.hostName : lease.address;
 
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Badge(
-                                        smallSize: 10,
-                                        backgroundColor: isBound ? colorScheme.primary : colorScheme.outline,
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Text(
-                                        lease.hostName.isNotEmpty ? lease.hostName : lease.address,
-                                        style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-                                      ),
-                                    ],
-                                  ),
-                                  Badge(
-                                    label: Text(lease.isDynamic ? 'Dynamic' : 'Static'),
-                                    backgroundColor: lease.isDynamic ? colorScheme.surfaceContainerHighest : colorScheme.primaryContainer,
-                                    textColor: lease.isDynamic ? colorScheme.onSurfaceVariant : colorScheme.onPrimaryContainer,
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
+                      final badgeBg = lease.isDynamic
+                          ? (isDark ? const Color(0xFF262D38) : colorScheme.surfaceContainerHighest)
+                          : (isDark ? const Color(0xFF1E2E38) : colorScheme.primaryContainer);
+                      final badgeFg = lease.isDynamic
+                          ? (isDark ? const Color(0xFFCFD6E2) : colorScheme.onSurfaceVariant)
+                          : (isDark ? const Color(0xFF86B9EC) : colorScheme.onPrimaryContainer);
 
-                              InkWell(
-                                borderRadius: BorderRadius.circular(8),
-                                onTap: () {
-                                  Clipboard.setData(ClipboardData(text: lease.address));
-                                  ToastBanner.show(context, message: 'Alamat IP ${lease.address} berhasil disalin.', type: ToastType.info);
-                                },
-                                onLongPress: () {
-                                  Clipboard.setData(ClipboardData(text: lease.macAddress));
-                                  ToastBanner.show(context, message: 'MAC Address ${lease.macAddress} berhasil disalin.', type: ToastType.info);
-                                },
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 2),
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12.0),
+                        child: Card(
+                          elevation: 0,
+                          color: cardBg,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(24.0),
+                            side: BorderSide(color: borderColor, width: 1),
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8.0),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Header: Status dot, Title, Dynamic/Static badge
+                                ListTile(
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16.0),
+                                  leading: Container(
+                                    width: 10,
+                                    height: 10,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: isBound ? const Color(0xFF86B9EC) : Colors.grey,
+                                    ),
+                                  ),
+                                  minLeadingWidth: 0,
+                                  title: Text(
+                                    displayName,
+                                    style: TextStyle(
+                                      color: titleColor,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                  trailing: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: badgeBg,
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    child: Text(
+                                      lease.isDynamic ? 'Dynamic' : 'Static',
+                                      style: TextStyle(
+                                        color: badgeFg,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                  subtitle: Padding(
+                                    padding: const EdgeInsets.only(top: 6.0),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        if (lease.comment.isNotEmpty)
+                                          Padding(
+                                            padding: const EdgeInsets.only(bottom: 2.0),
+                                            child: Text(
+                                              'Catatan: ${lease.comment}',
+                                              style: TextStyle(color: subtitleColor, fontSize: 13),
+                                            ),
+                                          ),
+                                        InkWell(
+                                          borderRadius: BorderRadius.circular(6),
+                                          onTap: () {
+                                            Clipboard.setData(ClipboardData(text: lease.address));
+                                            ToastBanner.show(context, message: 'Alamat IP ${lease.address} berhasil disalin.', type: ToastType.info);
+                                          },
+                                          onLongPress: () {
+                                            Clipboard.setData(ClipboardData(text: lease.macAddress));
+                                            ToastBanner.show(context, message: 'MAC Address ${lease.macAddress} berhasil disalin.', type: ToastType.info);
+                                          },
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(vertical: 2.0),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Flexible(
+                                                  child: Text(
+                                                    'IP: ${lease.address} • MAC: ${lease.macAddress}',
+                                                    style: FNetTheme.monoStyle(
+                                                      fontSize: 12,
+                                                      color: subtitleColor,
+                                                      fontWeight: FontWeight.w600,
+                                                    ),
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Icon(Icons.copy_rounded, size: 13, color: subtitleColor),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Wrap(
+                                          spacing: 6,
+                                          runSpacing: 4,
+                                          crossAxisAlignment: WrapCrossAlignment.center,
+                                          children: [
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: isDark ? const Color(0xFF1E252D) : colorScheme.secondaryContainer,
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                              child: Text(
+                                                vendor,
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: isDark ? const Color(0xFF9EA7B2) : colorScheme.onSecondaryContainer,
+                                                ),
+                                              ),
+                                            ),
+                                            if (lease.server.isNotEmpty)
+                                              Text(
+                                                'Server: ${lease.server}',
+                                                style: FNetTheme.monoStyle(fontSize: 11, color: subtitleColor),
+                                              ),
+                                            if (lease.expiresAfter.isNotEmpty)
+                                              Text(
+                                                '• Sisa: ${lease.expiresAfter}',
+                                                style: FNetTheme.monoStyle(fontSize: 11, color: subtitleColor),
+                                              ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+
+                                const SizedBox(height: 4),
+                                Divider(color: dividerColor, height: 1, thickness: 1),
+                                const SizedBox(height: 10),
+
+                                // Action Buttons (NO "Ke PPPoE")
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
                                   child: Row(
                                     children: [
-                                      Expanded(
-                                        child: Text(
-                                          'IP: ${lease.address} • MAC: ${lease.macAddress}',
-                                          style: FNetTheme.monoStyle(fontSize: 12, color: colorScheme.onSurface, fontWeight: FontWeight.w700),
+                                      if (lease.isDynamic)
+                                        FilledButton.icon(
+                                          onPressed: () => _handleToggleStatic(lease),
+                                          icon: const Icon(Icons.push_pin_outlined, size: 18),
+                                          label: const Text('Jadikan Static', style: TextStyle(fontWeight: FontWeight.bold)),
+                                          style: FilledButton.styleFrom(
+                                            backgroundColor: const Color(0xFF0F4D77),
+                                            foregroundColor: const Color(0xFFD3E7FF),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(20),
+                                            ),
+                                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                          ),
+                                        )
+                                      else
+                                        OutlinedButton.icon(
+                                          onPressed: () => _handleToggleStatic(lease),
+                                          icon: const Icon(Icons.push_pin, size: 18),
+                                          label: const Text('Lepas Reservasi', style: TextStyle(fontWeight: FontWeight.bold)),
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor: isDark ? const Color(0xFF86B9EC) : colorScheme.primary,
+                                            side: BorderSide(
+                                              color: isDark ? const Color(0xFF0F4D77) : colorScheme.outline,
+                                              width: 1.2,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(20),
+                                            ),
+                                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                          ),
                                         ),
-                                      ),
-                                      Icon(Icons.copy_rounded, size: 14, color: colorScheme.onSurfaceVariant),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 6),
 
-                              Row(
-                                children: [
-                                  Badge(
-                                    label: Text(vendor),
-                                    backgroundColor: colorScheme.secondaryContainer,
-                                    textColor: colorScheme.onSecondaryContainer,
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                  ),
-                                  if (lease.server.isNotEmpty) ...[
-                                    const SizedBox(width: 8),
-                                    Text('Server: ${lease.server}', style: FNetTheme.monoStyle(fontSize: 10, color: colorScheme.onSurfaceVariant)),
-                                  ],
-                                  if (lease.expiresAfter.isNotEmpty) ...[
-                                    const SizedBox(width: 8),
-                                    Text('Sisa: ${lease.expiresAfter}', style: FNetTheme.monoStyle(fontSize: 10, color: colorScheme.onSurfaceVariant)),
-                                  ],
-                                ],
-                              ),
-                              if (lease.comment.isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 6),
-                                  child: Text('Catatan: ${lease.comment}', style: TextStyle(fontSize: 11, color: colorScheme.onSurfaceVariant)),
-                                ),
-                              const SizedBox(height: 12),
-                              Divider(height: 1, color: colorScheme.outlineVariant),
-                              const SizedBox(height: 8),
+                                      const Spacer(),
 
-                              // Quick Action Buttons
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Row(
-                                    children: [
-                                      OutlinedButton.icon(
-                                        onPressed: () => _handleToggleStatic(lease),
-                                        style: OutlinedButton.styleFrom(
-                                          foregroundColor: lease.isDynamic ? colorScheme.primary : colorScheme.onSurfaceVariant,
-                                          minimumSize: const Size(48, 40),
-                                        ),
-                                        icon: Icon(lease.isDynamic ? Icons.push_pin_outlined : Icons.remove_circle_outline, size: 18),
-                                        label: Text(
-                                          lease.isDynamic ? 'Jadikan Static' : 'Lepas Reservasi',
-                                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-                                        ),
+                                      IconButton(
+                                        tooltip: 'Salin IP',
+                                        icon: const Icon(Icons.copy_outlined, size: 20),
+                                        color: subtitleColor,
+                                        onPressed: () {
+                                          Clipboard.setData(ClipboardData(text: lease.address));
+                                          ToastBanner.show(context, message: 'Alamat IP ${lease.address} berhasil disalin.', type: ToastType.info);
+                                        },
                                       ),
-                                      const SizedBox(width: 8),
+                                      const SizedBox(width: 4),
                                       IconButton(
                                         tooltip: 'Hapus Lease',
                                         icon: const Icon(Icons.delete_outline, size: 20),
@@ -442,25 +538,9 @@ class DhcpScreenState extends State<DhcpScreen> {
                                       ),
                                     ],
                                   ),
-                                  FilledButton.tonalIcon(
-                                    onPressed: () {
-                                      final rawName = lease.hostName.isNotEmpty ? lease.hostName.toLowerCase() : 'user';
-                                      final sanitizedName = rawName.replaceAll(RegExp(r'[^a-z0-9]'), '');
-                                      widget.onConvertToPppoe(
-                                        name: sanitizedName.isNotEmpty ? sanitizedName : 'user-${lease.address.split('.').last}',
-                                        ip: lease.address,
-                                        comment: '${lease.hostName.isNotEmpty ? lease.hostName : "Client"} | MAC: ${lease.macAddress}',
-                                      );
-                                    },
-                                    style: FilledButton.styleFrom(
-                                      minimumSize: const Size(48, 40),
-                                    ),
-                                    icon: const Icon(Icons.swap_horiz, size: 18),
-                                    label: const Text('Ke PPPoE', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
-                                  ),
-                                ],
-                              ),
-                            ],
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       );

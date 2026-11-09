@@ -94,6 +94,16 @@ Dokumen ini mencatat riwayat percakapan, keputusan arsitektur, dan evolusi penge
 
 ---
 
+### 7. Redesain DHCP M3, Edit Paket Hotspot, & Koreksi Sisa Waktu Voucher
+- **Komponen**: [`lib/screens/dhcp_screen.dart`](lib/screens/dhcp_screen.dart), [`lib/screens/hotspot_screen.dart`](lib/screens/hotspot_screen.dart), [`lib/utils/hotspot_utils.dart`](lib/utils/hotspot_utils.dart)
+- **Implementasi**:
+  - Redesain total kartu DHCP Leases menggunakan standar Material 3 murni (radius 24px, indikator dot bound/waiting, badge Static/Dynamic, copy IP/MAC interaktif, dan tombol aksi M3).
+  - Penghapusan tombol dan alur aksi konversi "Ke PPPoE" dari modul DHCP.
+  - Sembunyikan paket profil sistem `default` pada tab Paket Hotspot serta penambahan fitur Edit & Hapus paket Hotspot lengkap dengan pilihan Address Pool via select/dropdown.
+  - Perbaikan akurasi kalkulasi sisa masa aktif voucher Hotspot: mengacu langsung pada timestamp jatuh tempo dari catatan Mikhmon/MikroTik tanpa penambahan masa berlaku ganda, serta dukungan format tanggal Mikhmon yang luas (`Mon/DD/YYYY`, `DD-Mon-YYYY`, `DD/MM/YYYY`, `YYYY-MM-DD`).
+
+---
+
 ## 📜 Log Riwayat Git Commit
 
 ```text

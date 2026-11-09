@@ -92,22 +92,99 @@ class HotspotUtils {
     return null;
   }
 
+  static const Map<String, int> _monthMap = {
+    'jan': 1, 'januari': 1, 'january': 1,
+    'feb': 2, 'februari': 2, 'february': 2,
+    'mar': 3, 'maret': 3, 'march': 3,
+    'apr': 4, 'april': 4,
+    'mei': 5, 'may': 5,
+    'jun': 6, 'juni': 6, 'june': 6,
+    'jul': 7, 'juli': 7, 'july': 7,
+    'ags': 8, 'agu': 8, 'agustus': 8, 'aug': 8, 'august': 8,
+    'sep': 9, 'september': 9,
+    'okt': 10, 'oktober': 10, 'oct': 10, 'october': 10,
+    'nov': 11, 'november': 11,
+    'des': 12, 'desember': 12, 'dec': 12, 'december': 12,
+  };
+
   static DateTime? extractTimestampFromComment(String? comment) {
     if (comment == null || comment.trim().isEmpty) return null;
-    final match = RegExp(
+    final trimmed = comment.trim();
+
+    // 1. ISO format: YYYY-MM-DD or YYYY/MM/DD or YYYY.MM.DD
+    final isoMatch = RegExp(
       r'(\d{4})[-/.](1[0-2]|0?[1-9])[-/.]([12]\d|3[01]|0?[1-9])(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?',
-    ).firstMatch(comment);
-    if (match != null) {
-      final y = int.parse(match.group(1)!);
-      final m = int.parse(match.group(2)!);
-      final d = int.parse(match.group(3)!);
-      final h = int.tryParse(match.group(4) ?? '0') ?? 0;
-      final min = int.tryParse(match.group(5) ?? '0') ?? 0;
-      final s = int.tryParse(match.group(6) ?? '0') ?? 0;
+    ).firstMatch(trimmed);
+    if (isoMatch != null) {
+      final y = int.parse(isoMatch.group(1)!);
+      final m = int.parse(isoMatch.group(2)!);
+      final d = int.parse(isoMatch.group(3)!);
+      final h = int.tryParse(isoMatch.group(4) ?? '0') ?? 0;
+      final min = int.tryParse(isoMatch.group(5) ?? '0') ?? 0;
+      final s = int.tryParse(isoMatch.group(6) ?? '0') ?? 0;
       try {
-        return DateTime(y, m, d, h, min, s);
+        final dt = DateTime(y, m, d, h, min, s);
+        if (dt.year == y && dt.month == m && dt.day == d) return dt;
       } catch (_) {}
     }
+
+    // 2. Mikhmon format: Mon/DD/YYYY or Mon-DD-YYYY e.g. nov/29/2026 17:47:51
+    final monDayYearMatch = RegExp(
+      r'([a-zA-Z]{3,9})[-/.]([12]\d|3[01]|0?[1-9])[-/.](\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?',
+    ).firstMatch(trimmed);
+    if (monDayYearMatch != null) {
+      final mName = monDayYearMatch.group(1)!.toLowerCase();
+      if (_monthMap.containsKey(mName)) {
+        final m = _monthMap[mName]!;
+        final d = int.parse(monDayYearMatch.group(2)!);
+        final y = int.parse(monDayYearMatch.group(3)!);
+        final h = int.tryParse(monDayYearMatch.group(4) ?? '0') ?? 0;
+        final min = int.tryParse(monDayYearMatch.group(5) ?? '0') ?? 0;
+        final s = int.tryParse(monDayYearMatch.group(6) ?? '0') ?? 0;
+        try {
+          final dt = DateTime(y, m, d, h, min, s);
+          if (dt.year == y && dt.month == m && dt.day == d) return dt;
+        } catch (_) {}
+      }
+    }
+
+    // 3. DD-Mon-YYYY or DD Mon YYYY e.g. 29-nov-2026 17:47:51 or 29 Nov 2026
+    final dayMonYearMatch = RegExp(
+      r'([12]\d|3[01]|0?[1-9])[-/.\s]+([a-zA-Z]{3,9})[-/.\s]+(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?',
+    ).firstMatch(trimmed);
+    if (dayMonYearMatch != null) {
+      final mName = dayMonYearMatch.group(2)!.toLowerCase();
+      if (_monthMap.containsKey(mName)) {
+        final d = int.parse(dayMonYearMatch.group(1)!);
+        final m = _monthMap[mName]!;
+        final y = int.parse(dayMonYearMatch.group(3)!);
+        final h = int.tryParse(dayMonYearMatch.group(4) ?? '0') ?? 0;
+        final min = int.tryParse(dayMonYearMatch.group(5) ?? '0') ?? 0;
+        final s = int.tryParse(dayMonYearMatch.group(6) ?? '0') ?? 0;
+        try {
+          final dt = DateTime(y, m, d, h, min, s);
+          if (dt.year == y && dt.month == m && dt.day == d) return dt;
+        } catch (_) {}
+      }
+    }
+
+    // 4. DD-MM-YYYY or DD/MM/YYYY e.g. 29/11/2026 17:47:51
+    final dmyMatch = RegExp(
+      r'([12]\d|3[01]|0?[1-9])[-/.](1[0-2]|0?[1-9])[-/.](\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?',
+    ).firstMatch(trimmed);
+    if (dmyMatch != null) {
+      final d = int.parse(dmyMatch.group(1)!);
+      final m = int.parse(dmyMatch.group(2)!);
+      final y = int.parse(dmyMatch.group(3)!);
+      final h = int.tryParse(dmyMatch.group(4) ?? '0') ?? 0;
+      final min = int.tryParse(dmyMatch.group(5) ?? '0') ?? 0;
+      final s = int.tryParse(dmyMatch.group(6) ?? '0') ?? 0;
+      try {
+        final dt = DateTime(y, m, d, h, min, s);
+        if (dt.year == y && dt.month == m && dt.day == d) return dt;
+      } catch (_) {}
+    }
+
     return null;
   }
 
@@ -156,7 +233,15 @@ class HotspotUtils {
     validityMs ??= parseHotspotDuration(profile.comment);
     validityMs ??= parseHotspotDuration(profile.name);
 
-    if (validityMs == null || validityMs <= 0) {
+    DateTime expiryDate;
+    if (hasTimestamp) {
+      // Tanggal di komentar (dari Mikhmon / skrip MikroTik) adalah waktu jatuh tempo (expiry)
+      expiryDate = timestamp;
+    } else if (validityMs != null && validityMs > 0) {
+      // Fallback tanpa timestamp: hitung sisa dari limit uptime vs uptime saat ini
+      final remaining = max(0, validityMs - uptimeMs);
+      expiryDate = DateTime.now().add(Duration(milliseconds: remaining));
+    } else {
       final uptimeStr = user.uptime.isNotEmpty ? user.uptime : '0s';
       return HotspotUserExpiryInfo(
         isUsed: true,
@@ -165,17 +250,8 @@ class HotspotUtils {
         status: HotspotStatus.active,
         badgeText: 'Aktif (Tanpa Batas)',
         sisaText: 'Uptime: $uptimeStr',
-        formattedDate: timestamp != null ? DateFormat('d MMM yyyy HH:mm').format(timestamp) : '-',
+        formattedDate: '-',
       );
-    }
-
-    DateTime expiryDate;
-    if (hasTimestamp) {
-      expiryDate = timestamp.add(Duration(milliseconds: validityMs));
-    } else {
-      // Fallback: estimate from uptime vs limit
-      final remaining = max(0, validityMs - uptimeMs);
-      expiryDate = DateTime.now().add(Duration(milliseconds: remaining));
     }
 
     final now = DateTime.now();

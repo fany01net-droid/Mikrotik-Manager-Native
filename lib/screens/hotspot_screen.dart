@@ -31,6 +31,15 @@ class HotspotScreenState extends State<HotspotScreen> {
   List<HotspotUser> _users = [];
   List<HotspotActive> _activeSessions = [];
   List<HotspotProfile> _profiles = [];
+  List<IpPool> _ipPools = [];
+
+  bool _isSystemProfile(String name) {
+    final lower = name.toLowerCase().trim();
+    return lower == 'default';
+  }
+
+  List<HotspotProfile> get _filteredProfiles =>
+      _profiles.where((p) => !_isSystemProfile(p.name)).toList();
 
   String _searchQuery = '';
   String _userFilter = 'all';
@@ -80,6 +89,7 @@ class HotspotScreenState extends State<HotspotScreen> {
       _users = [];
       _activeSessions = [];
       _profiles = [];
+      _ipPools = [];
       refreshData();
     }
   }
@@ -148,14 +158,16 @@ class HotspotScreenState extends State<HotspotScreen> {
       final uFuture = MikrotikApiService.instance.getHotspotUsers(widget.profile);
       final aFuture = MikrotikApiService.instance.getHotspotActive(widget.profile);
       final pFuture = MikrotikApiService.instance.getHotspotProfiles(widget.profile);
+      final poolFuture = MikrotikApiService.instance.getIpPools(widget.profile);
 
-      final results = await Future.wait([uFuture, aFuture, pFuture]);
+      final results = await Future.wait([uFuture, aFuture, pFuture, poolFuture]);
 
       if (mounted) {
         setState(() {
           _users = results[0] as List<HotspotUser>;
           _activeSessions = results[1] as List<HotspotActive>;
           _profiles = results[2] as List<HotspotProfile>;
+          _ipPools = results[3] as List<IpPool>;
           _isLoading = false;
           _errorMessage = null;
         });
@@ -340,7 +352,19 @@ class HotspotScreenState extends State<HotspotScreen> {
     final passCtrl = TextEditingController(text: editingUser?.password ?? '');
     final limitCtrl = TextEditingController(text: editingUser?.limitUptime ?? '3h');
     final commentCtrl = TextEditingController(text: editingUser?.comment ?? '');
-    String selectedProfile = editingUser?.profile ?? (_profiles.isNotEmpty ? _profiles.first.name : 'default');
+    final availableProfiles = _filteredProfiles.toList();
+    if (editingUser != null &&
+        _isSystemProfile(editingUser.profile) &&
+        !availableProfiles.any((p) => p.name == editingUser.profile)) {
+      final existing = _profiles.firstWhere(
+        (p) => p.name == editingUser.profile,
+        orElse: () => HotspotProfile(id: '', name: editingUser.profile),
+      );
+      availableProfiles.insert(0, existing);
+    }
+
+    String selectedProfile = editingUser?.profile ??
+        (availableProfiles.isNotEmpty ? availableProfiles.first.name : (_profiles.isNotEmpty ? _profiles.first.name : 'default'));
 
     showModalBottomSheet(
       context: context,
@@ -402,12 +426,12 @@ class HotspotScreenState extends State<HotspotScreen> {
                   const SizedBox(height: 14),
 
                   DropdownButtonFormField<String>(
-                    initialValue: _profiles.any((p) => p.name == selectedProfile) ? selectedProfile : null,
+                    initialValue: availableProfiles.any((p) => p.name == selectedProfile) ? selectedProfile : null,
                     decoration: const InputDecoration(
                       labelText: 'Paket Hotspot',
                       prefixIcon: Icon(Icons.speed),
                     ),
-                    items: _profiles.map((p) => DropdownMenuItem(value: p.name, child: Text(p.name))).toList(),
+                    items: availableProfiles.map((p) => DropdownMenuItem(value: p.name, child: Text(p.name))).toList(),
                     onChanged: (val) {
                       if (val != null) setModalState(() => selectedProfile = val);
                     },
@@ -528,11 +552,32 @@ class HotspotScreenState extends State<HotspotScreen> {
     );
   }
 
-  void _showAddHotspotProfileModal() {
-    final nameCtrl = TextEditingController();
-    final sharedCtrl = TextEditingController(text: '1');
-    final rateCtrl = TextEditingController(text: '5M/5M');
-    final poolCtrl = TextEditingController();
+  void _showHotspotProfileModal({HotspotProfile? editingProfile}) {
+    final isEditing = editingProfile != null;
+    final nameCtrl = TextEditingController(text: editingProfile?.name ?? '');
+    final sharedCtrl = TextEditingController(text: editingProfile?.sharedUsers ?? (isEditing ? '1' : '1'));
+    final rateCtrl = TextEditingController(text: editingProfile?.rateLimit ?? (isEditing ? '' : '5M/5M'));
+
+    final initialPool = editingProfile?.addressPool ?? '';
+    final poolNames = _ipPools.map((p) => p.name).toSet();
+    final bool isCustomInitial = initialPool.isNotEmpty && initialPool != 'none' && !poolNames.contains(initialPool);
+
+    String selectedPool = isCustomInitial ? '__custom__' : (initialPool == 'none' ? '' : initialPool);
+    final customPoolCtrl = TextEditingController(text: isCustomInitial ? initialPool : '');
+
+    void Function(void Function())? modalSetter;
+    if (_ipPools.isEmpty) {
+      MikrotikApiService.instance.getIpPools(widget.profile).then((pools) {
+        if (mounted && pools.isNotEmpty) {
+          setState(() => _ipPools = pools);
+          modalSetter?.call(() {
+            if (initialPool.isNotEmpty && pools.any((p) => p.name == initialPool)) {
+              selectedPool = initialPool;
+            }
+          });
+        }
+      });
+    }
 
     showModalBottomSheet(
       context: context,
@@ -547,7 +592,44 @@ class HotspotScreenState extends State<HotspotScreen> {
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setModalState) {
+          modalSetter = setModalState;
           final theme = Theme.of(ctx);
+          final colorScheme = theme.colorScheme;
+
+          final List<DropdownMenuItem<String>> poolDropdownItems = [
+            DropdownMenuItem<String>(
+              value: '',
+              child: Text(
+                '-- Tidak Ada / none --',
+                style: TextStyle(color: colorScheme.onSurfaceVariant),
+              ),
+            ),
+            ..._ipPools.map((pool) {
+              return DropdownMenuItem<String>(
+                value: pool.name,
+                child: Text(
+                  pool.ranges.isNotEmpty ? '${pool.name} (${pool.ranges})' : pool.name,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              );
+            }),
+            const DropdownMenuItem<String>(
+              value: '__custom__',
+              child: Row(
+                children: [
+                  Icon(Icons.edit_note, size: 18),
+                  SizedBox(width: 8),
+                  Text('Input Manual / Kustom...'),
+                ],
+              ),
+            ),
+          ];
+
+          final validValues = poolDropdownItems.map((item) => item.value).toSet();
+          if (!validValues.contains(selectedPool)) {
+            selectedPool = selectedPool.isNotEmpty ? '__custom__' : '';
+          }
+
           return Padding(
             padding: EdgeInsets.only(
               left: 24,
@@ -564,7 +646,7 @@ class HotspotScreenState extends State<HotspotScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Tambah Paket Hotspot',
+                        isEditing ? 'Edit Paket Hotspot' : 'Tambah Paket Hotspot',
                         style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
                       ),
                       IconButton(
@@ -602,14 +684,35 @@ class HotspotScreenState extends State<HotspotScreen> {
                     ),
                   ),
                   const SizedBox(height: 14),
-                  TextField(
-                    controller: poolCtrl,
+                  DropdownButtonFormField<String>(
+                    key: ValueKey('hpool_$selectedPool'),
+                    initialValue: selectedPool,
+                    isExpanded: true,
                     decoration: const InputDecoration(
                       labelText: 'Address Pool (Opsional)',
-                      hintText: 'Contoh: hs-pool',
                       prefixIcon: Icon(Icons.lan_outlined),
+                      helperText: 'Pilih IP Pool MikroTik untuk paket ini',
                     ),
+                    items: poolDropdownItems,
+                    onChanged: (val) {
+                      if (val != null) {
+                        setModalState(() {
+                          selectedPool = val;
+                        });
+                      }
+                    },
                   ),
+                  if (selectedPool == '__custom__') ...[
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: customPoolCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Nama IP Pool Kustom',
+                        hintText: 'Contoh: hs-pool-khusus',
+                        prefixIcon: Icon(Icons.edit_note),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 20),
                   FilledButton.icon(
                     onPressed: () async {
@@ -618,28 +721,90 @@ class HotspotScreenState extends State<HotspotScreen> {
                         ToastBanner.show(ctx, message: 'Nama paket hotspot wajib diisi.', type: ToastType.error);
                         return;
                       }
+
+                      final finalPool = selectedPool == '__custom__'
+                          ? customPoolCtrl.text.trim()
+                          : selectedPool.trim();
+
                       Navigator.pop(ctx);
                       try {
-                        final data = {
+                        final data = <String, dynamic>{
                           'name': name,
                           'shared-users': sharedCtrl.text.trim().isNotEmpty ? sharedCtrl.text.trim() : '1',
                           if (rateCtrl.text.trim().isNotEmpty) 'rate-limit': rateCtrl.text.trim(),
-                          if (poolCtrl.text.trim().isNotEmpty) 'address-pool': poolCtrl.text.trim(),
+                          if (finalPool.isNotEmpty)
+                            'address-pool': finalPool
+                          else if (isEditing)
+                            'address-pool': 'none',
                         };
-                        await MikrotikApiService.instance.createHotspotProfile(widget.profile, data);
-                        if (mounted) {
-                          ToastBanner.show(context, message: 'Paket Hotspot $name berhasil dibuat.', type: ToastType.success);
+
+                        if (isEditing) {
+                          await MikrotikApiService.instance.updateHotspotProfile(widget.profile, editingProfile.id, data);
+                          if (mounted) {
+                            ToastBanner.show(context, message: 'Paket Hotspot $name berhasil diperbarui.', type: ToastType.success);
+                          }
+                        } else {
+                          await MikrotikApiService.instance.createHotspotProfile(widget.profile, data);
+                          if (mounted) {
+                            ToastBanner.show(context, message: 'Paket Hotspot $name berhasil dibuat.', type: ToastType.success);
+                          }
                         }
                         refreshData();
                       } catch (e) {
                         if (mounted) {
-                          ToastBanner.show(context, message: 'Gagal membuat paket: $e', type: ToastType.error);
+                          ToastBanner.show(context, message: 'Gagal menyimpan paket: $e', type: ToastType.error);
                         }
                       }
                     },
                     icon: const Icon(Icons.check),
-                    label: const Text('Simpan Paket'),
+                    label: Text(isEditing ? 'Simpan Perubahan' : 'Simpan Paket'),
                   ),
+                  if (isEditing) ...[
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: colorScheme.error,
+                        side: BorderSide(color: colorScheme.error.withValues(alpha: 0.5)),
+                      ),
+                      icon: const Icon(Icons.delete_outline, size: 18),
+                      label: const Text('Hapus Paket Hotspot'),
+                      onPressed: () {
+                        showDialog(
+                          context: ctx,
+                          builder: (dialogCtx) => AlertDialog(
+                            icon: Icon(Icons.delete_outline, color: colorScheme.error),
+                            title: const Text('Hapus Paket'),
+                            content: Text('Apakah Anda yakin ingin menghapus paket "${editingProfile.name}"?'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(dialogCtx),
+                                child: const Text('Batal'),
+                              ),
+                              FilledButton(
+                                style: FilledButton.styleFrom(backgroundColor: colorScheme.error),
+                                onPressed: () async {
+                                  Navigator.pop(dialogCtx);
+                                  Navigator.pop(ctx);
+                                  try {
+                                    await MikrotikApiService.instance.deleteHotspotProfile(widget.profile, editingProfile.id);
+                                    if (mounted) {
+                                      ToastBanner.show(context, message: 'Paket ${editingProfile.name} berhasil dihapus.', type: ToastType.success);
+                                    }
+                                    refreshData();
+                                  } catch (e) {
+                                    if (mounted) {
+                                      ToastBanner.show(context, message: 'Gagal menghapus paket: $e', type: ToastType.error);
+                                    }
+                                  }
+                                },
+                                child: const Text('Hapus'),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -710,7 +875,7 @@ class HotspotScreenState extends State<HotspotScreen> {
                   tabs: [
                     Tab(text: 'Voucher (${_users.length})'),
                     Tab(text: 'Aktif (${_activeSessions.length})'),
-                    Tab(text: 'Paket (${_profiles.length})'),
+                    Tab(text: 'Paket (${_filteredProfiles.length})'),
                   ],
                 ),
 
@@ -734,7 +899,7 @@ class HotspotScreenState extends State<HotspotScreen> {
                 : _selectedSubTab == 2
                     ? FloatingActionButton(
                         heroTag: 'addHotspotProfile',
-                        onPressed: _showAddHotspotProfileModal,
+                        onPressed: () => _showHotspotProfileModal(),
                         tooltip: 'Tambah Paket',
                         child: const Icon(Icons.add),
                       )
@@ -912,8 +1077,10 @@ class HotspotScreenState extends State<HotspotScreen> {
 
             final totalBytes = user.bytesIn + user.bytesOut;
             final usageText = totalBytes > 0 ? FormatUtils.formatBytes(totalBytes) : null;
-            final timeRemaining = exp.sisaText.isNotEmpty ? 'Sisa Waktu: ${exp.sisaText}' : null;
             final jatuhTempo = exp.formattedDate != '-' ? exp.formattedDate : null;
+            final badgeLabel = exp.status == HotspotStatus.expired
+                ? 'Kadaluarsa'
+                : (exp.sisaText.isNotEmpty ? exp.sisaText : exp.badgeText);
 
             return Padding(
               padding: const EdgeInsets.only(bottom: 12.0),
@@ -922,9 +1089,8 @@ class HotspotScreenState extends State<HotspotScreen> {
                 profile: user.profile,
                 customerNote: user.comment.isNotEmpty ? user.comment : null,
                 usage: usageText,
-                timeRemaining: timeRemaining,
                 jatuhTempo: jatuhTempo,
-                sisaHari: exp.badgeText,
+                sisaHari: badgeLabel,
                 isOnline: isOnline,
                 badgeColor: badgeCol,
                 badgeTextColor: badgeTextCol,
@@ -1106,7 +1272,9 @@ class HotspotScreenState extends State<HotspotScreen> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    final filtered = _profiles.where((p) {
+    final displayProfiles = _filteredProfiles;
+
+    final filtered = displayProfiles.where((p) {
       if (_profileSearchQuery.isNotEmpty) {
         final q = _profileSearchQuery.toLowerCase();
         return p.name.toLowerCase().contains(q) ||
@@ -1117,6 +1285,18 @@ class HotspotScreenState extends State<HotspotScreen> {
     }).toList();
 
     final visibleItems = filtered.take(_visibleProfilesCount).toList();
+
+    if (displayProfiles.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Text(
+            'Tidak ada paket profil kustom.',
+            style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13),
+          ),
+        ),
+      );
+    }
 
     return ListView(
       controller: _profileScrollController,
@@ -1146,31 +1326,50 @@ class HotspotScreenState extends State<HotspotScreen> {
             final voucherCount = _users.where((u) => u.profile == p.name).length;
             return Card(
               margin: const EdgeInsets.only(bottom: 10),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(p.name, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
-                        Badge(
-                          label: Text('$voucherCount Voucher'),
-                          backgroundColor: colorScheme.primaryContainer,
-                          textColor: colorScheme.onPrimaryContainer,
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () => _showHotspotProfileModal(editingProfile: p),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              p.name,
+                              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                            ),
+                          ),
+                          Badge(
+                            label: Text('$voucherCount Voucher'),
+                            backgroundColor: colorScheme.primaryContainer,
+                            textColor: colorScheme.onPrimaryContainer,
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          ),
+                          const SizedBox(width: 4),
+                          IconButton(
+                            icon: const Icon(Icons.edit_outlined, size: 20),
+                            color: colorScheme.onSurfaceVariant,
+                            tooltip: 'Edit Paket',
+                            onPressed: () => _showHotspotProfileModal(editingProfile: p),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      if (p.rateLimit.isNotEmpty)
+                        Text(
+                          'Rate Limit: ${p.rateLimit}',
+                          style: FNetTheme.monoStyle(fontSize: 13, fontWeight: FontWeight.w800, color: colorScheme.primary),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    if (p.rateLimit.isNotEmpty)
-                      Text('Rate Limit: ${p.rateLimit}', style: FNetTheme.monoStyle(fontSize: 13, fontWeight: FontWeight.w800, color: colorScheme.primary)),
-                    Text(
-                      'Shared Users: ${p.sharedUsers} • Pool: ${p.addressPool.isNotEmpty ? p.addressPool : "none"}',
-                      style: FNetTheme.monoStyle(fontSize: 10, color: colorScheme.onSurfaceVariant),
-                    ),
-                  ],
+                      Text(
+                        'Shared Users: ${p.sharedUsers} • Pool: ${p.addressPool.isNotEmpty && p.addressPool != "none" ? p.addressPool : "-"}',
+                        style: FNetTheme.monoStyle(fontSize: 10, color: colorScheme.onSurfaceVariant),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );
