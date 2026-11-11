@@ -181,8 +181,8 @@ class DhcpScreenState extends State<DhcpScreen> {
 
     final title = selectedCount == 1 ? 'Hapus DHCP Lease?' : 'Hapus $selectedCount Lease?';
     final content = selectedCount == 1
-        ? 'Apakah Anda yakin ingin menghapus lease untuk IP ${singleLease?.address} (${singleLease?.macAddress})?'
-        : 'Apakah Anda yakin ingin menghapus $selectedCount DHCP lease terpilih dari router?';
+        ? 'Hapus lease untuk IP ${singleLease?.address} (${singleLease?.macAddress})?'
+        : 'Hapus $selectedCount DHCP lease terpilih dari router?';
 
     showDialog(
       context: context,
@@ -426,43 +426,40 @@ class DhcpScreenState extends State<DhcpScreen> {
                     )
                   else ...[
                     ...visibleItems.map((lease) {
-                      final isDark = theme.brightness == Brightness.dark;
-                      final cardBg = isDark ? const Color(0xFF0F151B) : colorScheme.surface;
-                      final borderColor = isDark ? const Color(0xFF1E2833) : colorScheme.outlineVariant;
-                      final titleColor = isDark ? Colors.white : colorScheme.onSurface;
-                      final subtitleColor = isDark ? const Color(0xFF9EA7B2) : colorScheme.onSurfaceVariant;
-                      final dividerColor = isDark ? const Color(0xFF1E2833) : colorScheme.outlineVariant;
+                      final isSelected = _selectedLeaseIds.contains(lease.id);
+                      final isSelectionMode = _selectedLeaseIds.isNotEmpty;
+
+                      final cardBg = isSelected
+                          ? colorScheme.primaryContainer.withValues(alpha: 0.35)
+                          : colorScheme.surface;
+                      final borderColor = isSelected ? colorScheme.primary : colorScheme.outlineVariant;
+                      final titleColor = colorScheme.onSurface;
+                      final subtitleColor = colorScheme.onSurfaceVariant;
+                      final dividerColor = colorScheme.outlineVariant;
 
                       final isBound = lease.status == 'bound';
                       final vendor = FormatUtils.detectDeviceVendor(lease.macAddress, lease.hostName);
                       final displayName = lease.hostName.isNotEmpty ? lease.hostName : lease.address;
-                      final isSelected = _selectedLeaseIds.contains(lease.id);
-                      final isSelectionMode = _selectedLeaseIds.isNotEmpty;
 
                       final badgeBg = lease.isDynamic
-                          ? (isDark ? const Color(0xFF262D38) : colorScheme.surfaceContainerHighest)
-                          : (isDark ? const Color(0xFF1E2E38) : colorScheme.primaryContainer);
+                          ? colorScheme.surfaceContainerHighest
+                          : colorScheme.primaryContainer;
                       final badgeFg = lease.isDynamic
-                          ? (isDark ? const Color(0xFFCFD6E2) : colorScheme.onSurfaceVariant)
-                          : (isDark ? const Color(0xFF86B9EC) : colorScheme.onPrimaryContainer);
-
-                      final effectiveCardBg = isSelected
-                          ? (isDark ? const Color(0xFF132838) : colorScheme.primaryContainer.withValues(alpha: 0.25))
-                          : cardBg;
-                      final effectiveBorderColor = isSelected ? colorScheme.primary : borderColor;
+                          ? colorScheme.onSurfaceVariant
+                          : colorScheme.onPrimaryContainer;
 
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 12.0),
                         child: Card(
                           elevation: 0,
-                          color: effectiveCardBg,
+                          color: cardBg,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(24.0),
-                            side: BorderSide(color: effectiveBorderColor, width: isSelected ? 2 : 1),
+                            borderRadius: BorderRadius.circular(16.0),
+                            side: BorderSide(color: borderColor, width: isSelected ? 2 : 1),
                           ),
                           clipBehavior: Clip.antiAlias,
                           child: InkWell(
-                            borderRadius: BorderRadius.circular(24.0),
+                            borderRadius: BorderRadius.circular(16.0),
                             onTap: () {
                               if (isSelectionMode) {
                                 _toggleSelectLease(lease.id);
@@ -489,7 +486,7 @@ class DhcpScreenState extends State<DhcpScreen> {
                                             height: 10,
                                             decoration: BoxDecoration(
                                               shape: BoxShape.circle,
-                                              color: isBound ? const Color(0xFF86B9EC) : Colors.grey,
+                                              color: isBound ? FNetTheme.emerald : colorScheme.outline,
                                             ),
                                           ),
                                     minLeadingWidth: 0,
@@ -570,7 +567,7 @@ class DhcpScreenState extends State<DhcpScreen> {
                                             Container(
                                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                               decoration: BoxDecoration(
-                                                color: isDark ? const Color(0xFF1E252D) : colorScheme.secondaryContainer,
+                                                color: colorScheme.secondaryContainer,
                                                 borderRadius: BorderRadius.circular(8),
                                               ),
                                               child: Text(
@@ -578,7 +575,7 @@ class DhcpScreenState extends State<DhcpScreen> {
                                                 style: TextStyle(
                                                   fontSize: 11,
                                                   fontWeight: FontWeight.w600,
-                                                  color: isDark ? const Color(0xFF9EA7B2) : colorScheme.onSecondaryContainer,
+                                                  color: colorScheme.onSecondaryContainer,
                                                 ),
                                               ),
                                             ),
@@ -609,15 +606,15 @@ class DhcpScreenState extends State<DhcpScreen> {
                                   child: Row(
                                     children: [
                                       if (lease.isDynamic)
-                                        FilledButton.icon(
+                                        FilledButton.tonalIcon(
                                           onPressed: () => _handleToggleStatic(lease),
                                           icon: const Icon(Icons.push_pin_outlined, size: 18),
                                           label: const Text('Jadikan Static', style: TextStyle(fontWeight: FontWeight.bold)),
                                           style: FilledButton.styleFrom(
-                                            backgroundColor: const Color(0xFF0F4D77),
-                                            foregroundColor: const Color(0xFFD3E7FF),
+                                            backgroundColor: colorScheme.secondaryContainer,
+                                            foregroundColor: colorScheme.onSecondaryContainer,
                                             shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(20),
+                                              borderRadius: BorderRadius.circular(12),
                                             ),
                                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                                           ),
@@ -628,13 +625,13 @@ class DhcpScreenState extends State<DhcpScreen> {
                                           icon: const Icon(Icons.push_pin, size: 18),
                                           label: const Text('Lepas Reservasi', style: TextStyle(fontWeight: FontWeight.bold)),
                                           style: OutlinedButton.styleFrom(
-                                            foregroundColor: isDark ? const Color(0xFF86B9EC) : colorScheme.primary,
+                                            foregroundColor: colorScheme.primary,
                                             side: BorderSide(
-                                              color: isDark ? const Color(0xFF0F4D77) : colorScheme.outline,
+                                              color: colorScheme.outline,
                                               width: 1.2,
                                             ),
                                             shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(20),
+                                              borderRadius: BorderRadius.circular(12),
                                             ),
                                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                                           ),

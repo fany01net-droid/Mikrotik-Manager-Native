@@ -164,6 +164,21 @@ Dokumen ini mencatat riwayat percakapan, keputusan arsitektur, dan evolusi penge
     - Konfirmasi dialog penghapusan aman dengan peringatan jika paket masih digunakan oleh pelanggan aktif.
     - FAB (*Tambah Paket*) otomatis disembunyikan saat mode seleksi aktif.
 
+---
+
+### 13. Audit & Penerapan Standar Anti-Slop (UI & Copywriting) serta Pembersihan Ikon Pensil
+- **Komponen**: [`lib/widgets/user_card_m3.dart`](lib/widgets/user_card_m3.dart), [`lib/screens/dhcp_screen.dart`](lib/screens/dhcp_screen.dart), [`lib/screens/hotspot_screen.dart`](lib/screens/hotspot_screen.dart), [`lib/screens/pppoe_screen.dart`](lib/screens/pppoe_screen.dart), [`lib/screens/beranda_screen.dart`](lib/screens/beranda_screen.dart), [`lib/screens/login_screen.dart`](lib/screens/login_screen.dart), [`lib/screens/settings_screen.dart`](lib/screens/settings_screen.dart)
+- **Implementasi**:
+  - **Standar antislop-ui**:
+    - Menghapus semua kode warna heksadesimal hardcoded di kartu pengguna, tombol aksi, badge status, dan border, digantikan 100% dengan token semantik resmi `Theme.of(context).colorScheme`.
+    - Menghapus efek glow box shadow berlebihan pada indikator LED switch port di `beranda_screen.dart`.
+    - Standardisasi bentuk kartu menjadi radius standar Material 3 `16px` dan tombol `12px`.
+    - Menghapus tombol pensil (edit) redundan pada kartu Paket PPPoE dan Hotspot; kartu kini lebih bersih dan tap/klik langsung membuka modal edit paket.
+  - **Standar antislop-copywriting**:
+    - Penyelarasan bahasa Indonesia murni tanpa campuran bahasa Inggris ("Masuk", "Ingat saya").
+    - Menghilangkan kalimat birokratis/robotik AI dan filler phrases pada dialog konfirmasi hapus di seluruh modul.
+    - Pembersihan buzzwords dan jargon AI pada menu preferensi & info footer.
+
 
 
 

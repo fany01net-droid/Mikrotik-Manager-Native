@@ -273,8 +273,8 @@ class HotspotScreenState extends State<HotspotScreen> {
 
     final title = selectedCount == 1 ? 'Hapus Voucher Hotspot?' : 'Hapus $selectedCount Voucher?';
     final content = selectedCount == 1
-        ? 'Apakah Anda yakin ingin menghapus voucher "${singleUser?.name}" dari router?'
-        : 'Apakah Anda yakin ingin menghapus $selectedCount voucher hotspot terpilih dari router?';
+        ? 'Hapus voucher "${singleUser?.name}" dari router?'
+        : 'Hapus $selectedCount voucher hotspot terpilih dari router?';
 
     showDialog(
       context: context,
@@ -1346,28 +1346,27 @@ class HotspotScreenState extends State<HotspotScreen> {
 
             Color? badgeCol;
             Color? badgeTextCol;
-            final isDark = theme.brightness == Brightness.dark;
 
             switch (exp.status) {
               case HotspotStatus.active:
-                badgeCol = isDark ? const Color(0xFF1E2E38) : colorScheme.primaryContainer;
-                badgeTextCol = isDark ? const Color(0xFF86B9EC) : colorScheme.onPrimaryContainer;
+                badgeCol = colorScheme.primaryContainer;
+                badgeTextCol = colorScheme.onPrimaryContainer;
                 break;
               case HotspotStatus.expiringSoon:
-                badgeCol = isDark ? const Color(0xFF382F1E) : colorScheme.tertiaryContainer;
-                badgeTextCol = isDark ? const Color(0xFFF7DEB1) : colorScheme.onTertiaryContainer;
+                badgeCol = colorScheme.tertiaryContainer;
+                badgeTextCol = colorScheme.onTertiaryContainer;
                 break;
               case HotspotStatus.expired:
-                badgeCol = isDark ? const Color(0xFF381E1E) : colorScheme.errorContainer;
-                badgeTextCol = isDark ? const Color(0xFFF7B1A5) : colorScheme.onErrorContainer;
+                badgeCol = colorScheme.errorContainer;
+                badgeTextCol = colorScheme.onErrorContainer;
                 break;
               case HotspotStatus.unused:
-                badgeCol = isDark ? const Color(0xFF262D38) : colorScheme.surfaceContainerHighest;
-                badgeTextCol = isDark ? const Color(0xFFCFD6E2) : colorScheme.onSurfaceVariant;
+                badgeCol = colorScheme.surfaceContainerHighest;
+                badgeTextCol = colorScheme.onSurfaceVariant;
                 break;
               case HotspotStatus.disabled:
-                badgeCol = isDark ? const Color(0xFF202020) : colorScheme.surfaceContainer;
-                badgeTextCol = isDark ? Colors.grey : colorScheme.outline;
+                badgeCol = colorScheme.surfaceContainer;
+                badgeTextCol = colorScheme.outline;
                 break;
             }
 
@@ -1396,8 +1395,8 @@ class HotspotScreenState extends State<HotspotScreen> {
                 secondaryActionLabel: 'Reset MAC',
                 secondaryActionIcon: Icons.phonelink_erase,
                 onSecondaryAction: () => _handleResetMac(user),
-                secondaryActionColor: isDark ? const Color(0xFF86B9EC) : colorScheme.primary,
-                secondaryActionBorderColor: isDark ? const Color(0xFF0F4D77) : colorScheme.outline,
+                secondaryActionColor: colorScheme.primary,
+                secondaryActionBorderColor: colorScheme.outline,
                 onEdit: () => _showSingleVoucherModal(editingUser: user),
                 isSelected: _selectedVoucherIds.contains(user.id),
                 isSelectionMode: _selectedVoucherIds.isNotEmpty,
@@ -1631,19 +1630,18 @@ class HotspotScreenState extends State<HotspotScreen> {
             final effectiveId = p.id.isNotEmpty ? p.id : p.name;
             final isSelected = _selectedProfileIds.contains(effectiveId);
             final isSelectionMode = _selectedProfileIds.isNotEmpty;
-            final isDark = theme.brightness == Brightness.dark;
 
             return Card(
               margin: const EdgeInsets.only(bottom: 10),
               color: isSelected
-                  ? (isDark ? const Color(0xFF132838) : colorScheme.primaryContainer.withValues(alpha: 0.25))
+                  ? colorScheme.primaryContainer.withValues(alpha: 0.35)
                   : null,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
                 side: BorderSide(
                   color: isSelected
                       ? colorScheme.primary
-                      : (isDark ? const Color(0xFF1E2833) : colorScheme.outlineVariant),
+                      : colorScheme.outlineVariant,
                   width: isSelected ? 2 : 1,
                 ),
               ),
@@ -1685,15 +1683,6 @@ class HotspotScreenState extends State<HotspotScreen> {
                             textColor: colorScheme.onPrimaryContainer,
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           ),
-                          if (!isSelectionMode) ...[
-                            const SizedBox(width: 4),
-                            IconButton(
-                              icon: const Icon(Icons.edit_outlined, size: 20),
-                              color: colorScheme.onSurfaceVariant,
-                              tooltip: 'Edit Paket',
-                              onPressed: () => _showHotspotProfileModal(editingProfile: p),
-                            ),
-                          ],
                         ],
                       ),
                       const SizedBox(height: 6),

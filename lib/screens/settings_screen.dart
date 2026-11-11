@@ -484,7 +484,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             children: [
               SwitchListTile(
                 secondary: const Icon(Icons.dark_mode_outlined),
-                title: const Text('Mode Gelap (NOC Dark Slate)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                title: const Text('Mode Gelap', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
                 value: widget.isDark,
                 onChanged: (val) => widget.onThemeToggle(val),
               ),
@@ -543,7 +543,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: 2),
               Text(
-                'Zero Cloud Dependency • Privacy First',
+                'Aplikasi Monitoring MikroTik',
                 style: TextStyle(fontSize: 10, color: colorScheme.onSurfaceVariant),
               ),
             ],

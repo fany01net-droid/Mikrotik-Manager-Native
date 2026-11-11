@@ -284,8 +284,8 @@ class PppoeScreenState extends State<PppoeScreen> {
 
     final title = selectedCount == 1 ? 'Hapus Pelanggan PPPoE?' : 'Hapus $selectedCount Pelanggan?';
     final content = selectedCount == 1
-        ? 'Apakah Anda yakin ingin menghapus pelanggan "${singleSecret?.name}" dari router?'
-        : 'Apakah Anda yakin ingin menghapus $selectedCount pelanggan PPPoE terpilih dari router?';
+        ? 'Hapus pelanggan "${singleSecret?.name}" dari router?'
+        : 'Hapus $selectedCount pelanggan PPPoE terpilih dari router?';
 
     showDialog(
       context: context,
@@ -383,8 +383,8 @@ class PppoeScreenState extends State<PppoeScreen> {
 
     final title = selectedCount == 1 ? 'Hapus Paket PPPoE?' : 'Hapus $selectedCount Paket PPPoE?';
     final content = selectedCount == 1
-        ? 'Apakah Anda yakin ingin menghapus paket "${singleProfile?.name}" dari router?${inUseCount > 0 ? "\n\nPerhatian: Paket ini masih digunakan oleh $inUseCount pelanggan." : ""}'
-        : 'Apakah Anda yakin ingin menghapus $selectedCount paket PPPoE terpilih dari router?${inUseCount > 0 ? "\n\nPerhatian: Beberapa paket masih digunakan oleh $inUseCount pelanggan." : ""}';
+        ? 'Hapus paket "${singleProfile?.name}" dari router?${inUseCount > 0 ? "\n\nPerhatian: Paket ini masih digunakan oleh $inUseCount pelanggan." : ""}'
+        : 'Hapus $selectedCount paket PPPoE terpilih dari router?${inUseCount > 0 ? "\n\nPerhatian: Beberapa paket masih digunakan oleh $inUseCount pelanggan." : ""}';
 
     showDialog(
       context: context,
@@ -1356,24 +1356,24 @@ class PppoeScreenState extends State<PppoeScreen> {
             String badgeText;
 
             if (secret.disabled) {
-              badgeCol = const Color(0xFF381E1E);
-              badgeTextCol = const Color(0xFFF7B1A5);
+              badgeCol = colorScheme.errorContainer;
+              badgeTextCol = colorScheme.onErrorContainer;
               badgeText = 'Isolir';
             } else {
               switch (parsed.status) {
                 case ExpiryStatus.expired:
-                  badgeCol = const Color(0xFF381E1E);
-                  badgeTextCol = const Color(0xFFF7B1A5);
+                  badgeCol = colorScheme.errorContainer;
+                  badgeTextCol = colorScheme.onErrorContainer;
                   badgeText = 'Kadaluarsa';
                   break;
                 case ExpiryStatus.expiringSoon:
-                  badgeCol = const Color(0xFF382F1E);
-                  badgeTextCol = const Color(0xFFF7DEB1);
+                  badgeCol = colorScheme.tertiaryContainer;
+                  badgeTextCol = colorScheme.onTertiaryContainer;
                   badgeText = 'Sisa ${parsed.daysRemaining} hari';
                   break;
                 case ExpiryStatus.active:
-                  badgeCol = const Color(0xFF1E2E38);
-                  badgeTextCol = const Color(0xFF86B9EC);
+                  badgeCol = colorScheme.primaryContainer;
+                  badgeTextCol = colorScheme.onPrimaryContainer;
                   badgeText = 'Sisa ${parsed.daysRemaining} hari';
                   break;
                 case ExpiryStatus.noExpiry:
@@ -1577,19 +1577,17 @@ class PppoeScreenState extends State<PppoeScreen> {
           final effectiveId = p.id.isNotEmpty ? p.id : p.name;
           final isSelected = _selectedProfileIds.contains(effectiveId);
           final isSelectionMode = _selectedProfileIds.isNotEmpty;
-          final isDark = theme.brightness == Brightness.dark;
-
           return Card(
             margin: const EdgeInsets.only(bottom: 10),
             color: isSelected
-                ? (isDark ? const Color(0xFF132838) : colorScheme.primaryContainer.withValues(alpha: 0.25))
+                ? colorScheme.primaryContainer.withValues(alpha: 0.35)
                 : null,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
               side: BorderSide(
                 color: isSelected
                     ? colorScheme.primary
-                    : (isDark ? const Color(0xFF1E2833) : colorScheme.outlineVariant),
+                    : colorScheme.outlineVariant,
                 width: isSelected ? 2 : 1,
               ),
             ),
@@ -1628,15 +1626,6 @@ class PppoeScreenState extends State<PppoeScreen> {
                           textColor: colorScheme.onPrimaryContainer,
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         ),
-                        if (!isSelectionMode) ...[
-                          const SizedBox(width: 4),
-                          IconButton(
-                            icon: const Icon(Icons.edit_outlined, size: 20),
-                            color: colorScheme.onSurfaceVariant,
-                            tooltip: 'Edit Paket',
-                            onPressed: () => _showProfileDialog(editingProfile: p),
-                          ),
-                        ],
                       ],
                     ),
                     const SizedBox(height: 6),

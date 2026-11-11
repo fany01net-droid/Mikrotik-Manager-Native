@@ -246,7 +246,7 @@ class BerandaScreenState extends State<BerandaScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Koneksi normal (${res.durationMs} ms) • RouterOS v${res.data?.version ?? ""}'),
-          backgroundColor: const Color(0xFF10B981),
+          backgroundColor: FNetTheme.emerald,
           duration: const Duration(seconds: 3),
         ),
       );
@@ -1695,7 +1695,7 @@ class BerandaScreenState extends State<BerandaScreen> {
                     size: 7,
                     color: isSelected
                         ? colorScheme.onPrimary
-                        : (isRunning ? const Color(0xFF10B981) : colorScheme.outline),
+                        : (isRunning ? FNetTheme.emerald : colorScheme.outline),
                   ),
                   label: Text(label),
                   labelStyle: TextStyle(
@@ -2033,8 +2033,8 @@ class BerandaScreenState extends State<BerandaScreen> {
                     '$upCount / ${_interfaces.length} LINK UP',
                     style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 10),
                   ),
-                  backgroundColor: upCount > 0 ? const Color(0xFF10B981).withValues(alpha: 0.2) : colorScheme.surfaceContainerHigh,
-                  textColor: upCount > 0 ? const Color(0xFF10B981) : colorScheme.outline,
+                  backgroundColor: upCount > 0 ? FNetTheme.emerald.withValues(alpha: 0.2) : colorScheme.surfaceContainerHigh,
+                  textColor: upCount > 0 ? FNetTheme.emerald : colorScheme.outline,
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 ),
               ],
@@ -2089,16 +2089,7 @@ class BerandaScreenState extends State<BerandaScreen> {
                                 height: 8,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: isUp ? const Color(0xFF10B981) : colorScheme.outline.withValues(alpha: 0.5),
-                                  boxShadow: isUp
-                                      ? [
-                                          BoxShadow(
-                                            color: const Color(0xFF10B981).withValues(alpha: 0.5),
-                                            blurRadius: 4,
-                                            spreadRadius: 1,
-                                          ),
-                                        ]
-                                      : null,
+                                  color: isUp ? FNetTheme.emerald : colorScheme.outline.withValues(alpha: 0.5),
                                 ),
                               ),
                             ],
@@ -2119,7 +2110,7 @@ class BerandaScreenState extends State<BerandaScreen> {
                             style: TextStyle(
                               fontSize: 9,
                               fontWeight: FontWeight.w600,
-                              color: isUp ? const Color(0xFF10B981) : colorScheme.outline,
+                              color: isUp ? FNetTheme.emerald : colorScheme.outline,
                             ),
                           ),
                         ],
@@ -2174,8 +2165,8 @@ class BerandaScreenState extends State<BerandaScreen> {
                 ),
                 trailing: Badge(
                   label: Text(isUp ? 'UP' : 'DOWN', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 9)),
-                  backgroundColor: isUp ? const Color(0xFF10B981).withValues(alpha: 0.2) : colorScheme.surfaceContainerHigh,
-                  textColor: isUp ? const Color(0xFF10B981) : colorScheme.outline,
+                  backgroundColor: isUp ? FNetTheme.emerald.withValues(alpha: 0.2) : colorScheme.surfaceContainerHigh,
+                  textColor: isUp ? FNetTheme.emerald : colorScheme.outline,
                 ),
                 onTap: () => _switchInterface(i.name),
               );
@@ -2336,7 +2327,7 @@ class BerandaScreenState extends State<BerandaScreen> {
                     Icons.health_and_safety_outlined,
                     'Bad Blocks',
                     badBlocksText,
-                    _resource.badBlocks > 0 ? colorScheme.error : const Color(0xFF10B981),
+                    _resource.badBlocks > 0 ? colorScheme.error : FNetTheme.emerald,
                   ),
                 ),
               ],
@@ -2381,13 +2372,13 @@ class BerandaScreenState extends State<BerandaScreen> {
             Divider(height: 1, indent: 16, endIndent: 16, color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
             ListTile(
               dense: true,
-              leading: Icon(Icons.verified_outlined, color: const Color(0xFF10B981), size: 20),
+              leading: Icon(Icons.verified_outlined, color: FNetTheme.emerald, size: 20),
               title: const Text('Kondisi Bad Blocks', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
               subtitle: Text(
                 '${_resource.badBlocks}% ${_resource.badBlocks == 0 ? "• Memori Sehat" : "• Waspada sektor rusak"}',
                 style: FNetTheme.monoStyle(
                   fontSize: 11,
-                  color: _resource.badBlocks > 0 ? colorScheme.error : const Color(0xFF10B981),
+                  color: _resource.badBlocks > 0 ? colorScheme.error : FNetTheme.emerald,
                 ),
               ),
             ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/fnet_theme.dart';
 
 class UserCardM3 extends StatelessWidget {
   final String username;
@@ -68,20 +69,21 @@ class UserCardM3 extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final defaultCardBg = isDark ? const Color(0xFF0F151B) : Theme.of(context).colorScheme.surface;
-    final cardBg = isSelected
-        ? (isDark ? const Color(0xFF132838) : Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.25))
-        : defaultCardBg;
-    final borderColor = isSelected
-        ? Theme.of(context).colorScheme.primary
-        : (isDark ? const Color(0xFF1E2833) : Theme.of(context).colorScheme.outlineVariant);
-    final titleColor = isDark ? Colors.white : Theme.of(context).colorScheme.onSurface;
-    final subtitleColor = isDark ? const Color(0xFF9EA7B2) : Theme.of(context).colorScheme.onSurfaceVariant;
-    final dividerColor = isDark ? const Color(0xFF1E2833) : Theme.of(context).colorScheme.outlineVariant;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
-    final defaultBadgeBg = isDark ? const Color(0xFF262D38) : Theme.of(context).colorScheme.surfaceContainerHighest;
-    final defaultBadgeFg = isDark ? const Color(0xFFCFD6E2) : Theme.of(context).colorScheme.onSurfaceVariant;
+    final cardBg = isSelected
+        ? colorScheme.primaryContainer.withValues(alpha: 0.35)
+        : colorScheme.surface;
+    final borderColor = isSelected
+        ? colorScheme.primary
+        : colorScheme.outlineVariant;
+    final titleColor = colorScheme.onSurface;
+    final subtitleColor = colorScheme.onSurfaceVariant;
+    final dividerColor = colorScheme.outlineVariant;
+
+    final defaultBadgeBg = colorScheme.surfaceContainerHighest;
+    final defaultBadgeFg = colorScheme.onSurfaceVariant;
 
     final hasPrimaryAction = onPrimaryAction != null || onAddDays != null;
     final hasSecondaryAction = onSecondaryAction != null || onIsolir != null;
@@ -90,12 +92,12 @@ class UserCardM3 extends StatelessWidget {
       elevation: 0,
       color: cardBg,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24.0),
+        borderRadius: BorderRadius.circular(16.0),
         side: BorderSide(color: borderColor, width: isSelected ? 2 : 1),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        borderRadius: BorderRadius.circular(24.0),
+        borderRadius: BorderRadius.circular(16.0),
         onTap: onTap,
         onLongPress: onLongPress,
         child: Padding(
@@ -110,7 +112,7 @@ class UserCardM3 extends StatelessWidget {
                 leading: isSelectionMode
                     ? Icon(
                         isSelected ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
-                        color: isSelected ? Theme.of(context).colorScheme.primary : subtitleColor,
+                        color: isSelected ? colorScheme.primary : subtitleColor,
                         size: 20,
                       )
                     : Container(
@@ -118,7 +120,7 @@ class UserCardM3 extends StatelessWidget {
                         height: 10,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: isOnline ? const Color(0xFF86B9EC) : Colors.grey,
+                          color: isOnline ? FNetTheme.emerald : colorScheme.outline,
                         ),
                       ),
                 minLeadingWidth: 0,
@@ -182,14 +184,14 @@ class UserCardM3 extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: badgeColor ?? defaultBadgeBg,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
                   sisaHari,
                   style: TextStyle(
                     color: badgeTextColor ?? defaultBadgeFg,
                     fontSize: 12,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
@@ -205,9 +207,9 @@ class UserCardM3 extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
                 child: Row(
                   children: [
-                    // Tombol Aksi 1 (Filled / Tonal Button)
+                    // Tombol Aksi 1 (Filled Tonal Button M3)
                     if (hasPrimaryAction)
-                      FilledButton.icon(
+                      FilledButton.tonalIcon(
                         onPressed: onPrimaryAction ?? onAddDays,
                         icon: Icon(primaryActionIcon ?? Icons.more_time_rounded, size: 18),
                         label: Text(
@@ -215,10 +217,10 @@ class UserCardM3 extends StatelessWidget {
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                         style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF0F4D77),
-                          foregroundColor: const Color(0xFFD3E7FF),
+                          backgroundColor: colorScheme.secondaryContainer,
+                          foregroundColor: colorScheme.onSecondaryContainer,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
+                            borderRadius: BorderRadius.circular(12),
                           ),
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                         ),
@@ -226,7 +228,7 @@ class UserCardM3 extends StatelessWidget {
                     if (hasPrimaryAction && hasSecondaryAction)
                       const SizedBox(width: 10),
 
-                    // Tombol Aksi 2 (Outlined Button)
+                    // Tombol Aksi 2 (Outlined Button M3)
                     if (hasSecondaryAction)
                       OutlinedButton.icon(
                         onPressed: onSecondaryAction ?? onIsolir,
@@ -241,14 +243,14 @@ class UserCardM3 extends StatelessWidget {
                         ),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: secondaryActionColor ??
-                              (isIsolir ? const Color(0xFF86B9EC) : const Color(0xFFF7B1A5)),
+                              (isIsolir ? colorScheme.primary : colorScheme.error),
                           side: BorderSide(
                             color: secondaryActionBorderColor ??
-                                (isIsolir ? const Color(0xFF0F4D77) : const Color(0xFFB35A4B)),
+                                (isIsolir ? colorScheme.outline : colorScheme.error),
                             width: 1.2,
                           ),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
+                            borderRadius: BorderRadius.circular(12),
                           ),
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                         ),
@@ -256,11 +258,11 @@ class UserCardM3 extends StatelessWidget {
 
                     const Spacer(),
 
-                    // Tombol Edit
+                    // Tombol Edit M3
                     if (onEdit != null)
                       IconButton(
                         onPressed: onEdit,
-                        icon: const Icon(Icons.edit_outlined, color: Color(0xFF9EA7B2), size: 20),
+                        icon: Icon(Icons.edit_outlined, color: colorScheme.onSurfaceVariant, size: 20),
                         splashRadius: 20,
                       ),
                   ],
