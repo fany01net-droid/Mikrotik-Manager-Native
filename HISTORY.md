@@ -250,6 +250,7 @@ Dokumen ini mencatat riwayat percakapan, keputusan arsitektur, dan evolusi penge
 ## 📜 Log Riwayat Git Commit
 
 ```text
+956f557 feat: add Fanny Network splash screen with satellite-to-homes vector animation, theme color customizer, and docking transition
 dc4e29b feat: add polling interval setting, data sorting across modules, minimalist DHCP card, and antislop-ui refinements
 1aa6169 docs: update HISTORY.md with latest commit hashes
 e4fbbf8 feat: make interface port grid responsive with full-width cards and centered content
