@@ -2046,78 +2046,94 @@ class BerandaScreenState extends State<BerandaScreen> {
                 child: Text('Tidak ada interface terdeteksi', style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 12)),
               )
             else
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _interfaces.map((i) {
-                  final isUp = i.running && !i.disabled;
-                  final isSelected = i.name == _selectedInterfaceName;
-                  return InkWell(
-                    borderRadius: BorderRadius.circular(8),
-                    onTap: () => _switchInterface(i.name),
-                    child: Container(
-                      width: 100,
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? colorScheme.primaryContainer.withValues(alpha: 0.4)
-                            : colorScheme.surfaceContainerLow,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: isSelected
-                              ? colorScheme.primary
-                              : colorScheme.outlineVariant.withValues(alpha: 0.5),
-                          width: isSelected ? 1.5 : 1,
-                        ),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  const spacing = 8.0;
+                  final int columns = constraints.maxWidth < 420
+                      ? 3
+                      : (constraints.maxWidth < 680 ? 4 : 6);
+                  final itemWidth = ((constraints.maxWidth - ((columns - 1) * spacing)) / columns).floorToDouble();
+
+                  return Wrap(
+                    spacing: spacing,
+                    runSpacing: spacing,
+                    children: _interfaces.map((i) {
+                      final isUp = i.running && !i.disabled;
+                      final isSelected = i.name == _selectedInterfaceName;
+                      return InkWell(
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: () => _switchInterface(i.name),
+                        child: Container(
+                          width: itemWidth,
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? colorScheme.primaryContainer.withValues(alpha: 0.4)
+                                : colorScheme.surfaceContainerLow,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: isSelected
+                                  ? colorScheme.primary
+                                  : colorScheme.outlineVariant.withValues(alpha: 0.5),
+                              width: isSelected ? 1.5 : 1,
+                            ),
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              Icon(
-                                i.type.toLowerCase().contains('wlan') || i.type.toLowerCase().contains('wifi')
-                                    ? Icons.wifi_rounded
-                                    : Icons.settings_ethernet_rounded,
-                                size: 14,
-                                color: isUp ? colorScheme.primary : colorScheme.outline,
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    i.type.toLowerCase().contains('wlan') || i.type.toLowerCase().contains('wifi')
+                                        ? Icons.wifi_rounded
+                                        : Icons.settings_ethernet_rounded,
+                                    size: 15,
+                                    color: isUp ? colorScheme.primary : colorScheme.outline,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    width: 8,
+                                    height: 8,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: isUp ? FNetTheme.emerald : colorScheme.outline.withValues(alpha: 0.5),
+                                    ),
+                                  ),
+                                ],
                               ),
-                              Container(
-                                width: 8,
-                                height: 8,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: isUp ? FNetTheme.emerald : colorScheme.outline.withValues(alpha: 0.5),
+                              const SizedBox(height: 6),
+                              Text(
+                                i.name,
+                                textAlign: TextAlign.center,
+                                style: FNetTheme.monoStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: isUp ? colorScheme.onSurface : colorScheme.outline,
                                 ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                isUp ? 'RUNNING' : (i.disabled ? 'DISABLED' : 'NO LINK'),
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w600,
+                                  color: isUp ? FNetTheme.emerald : colorScheme.outline,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ],
                           ),
-                          const SizedBox(height: 6),
-                          Text(
-                            i.name,
-                            style: FNetTheme.monoStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: isUp ? colorScheme.onSurface : colorScheme.outline,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          Text(
-                            isUp ? 'RUNNING' : (i.disabled ? 'DISABLED' : 'NO LINK'),
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w600,
-                              color: isUp ? FNetTheme.emerald : colorScheme.outline,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                        ),
+                      );
+                    }).toList(),
                   );
-                }).toList(),
+                },
               ),
           ],
         ),

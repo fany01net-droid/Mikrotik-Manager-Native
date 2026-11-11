@@ -179,6 +179,15 @@ Dokumen ini mencatat riwayat percakapan, keputusan arsitektur, dan evolusi penge
     - Menghilangkan kalimat birokratis/robotik AI dan filler phrases pada dialog konfirmasi hapus di seluruh modul.
     - Pembersihan buzzwords dan jargon AI pada menu preferensi & info footer.
 
+---
+
+### 14. Responsivitas Grid Status Interface & Port Rata Kanan-Kiri & Konten Rata Tengah
+- **Komponen**: [`lib/screens/beranda_screen.dart`](lib/screens/beranda_screen.dart)
+- **Implementasi**:
+  - Mengganti lebar kaku (*fixed width* `100px`) kartu port switch dengan `LayoutBuilder` adaptif.
+  - Kartu kini otomatis membagi dan mengisi lebar baris secara penuh (*rata kanan-kiri*): 3 kolom pada ponsel, 4 kolom pada tablet, dan 6 kolom pada layar desktop.
+  - Penataan seluruh elemen internal kartu (ikon port, status LED, nama interface, dan teks status RUNNING/NO LINK) dibuat presisi rata tengah (*center aligned*).
+
 
 
 
