@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import '../models/mikrotik_models.dart';
 import '../services/mikrotik_api_service.dart';
 import '../theme/fnet_theme.dart';
-import '../utils/format_utils.dart';
 import '../widgets/loading_indicator_m3e.dart';
 import '../widgets/toast_banner.dart';
 
@@ -30,9 +29,179 @@ class DhcpScreenState extends State<DhcpScreen> {
   String _searchQuery = '';
   int _selectedSubTab = 0; // 0: Semua, 1: Aktif, 2: Menunggu
   String _serverFilter = 'all';
+  String _sortBy = 'ip_asc';
 
   // Multi-select / Hold-to-select support
   final Set<String> _selectedLeaseIds = {};
+
+  int _compareIp(String ipA, String ipB) {
+    final partsA = ipA.split('.').map((e) => int.tryParse(e) ?? 0).toList();
+    final partsB = ipB.split('.').map((e) => int.tryParse(e) ?? 0).toList();
+    for (int i = 0; i < 4; i++) {
+      final a = i < partsA.length ? partsA[i] : 0;
+      final b = i < partsB.length ? partsB[i] : 0;
+      if (a != b) return a.compareTo(b);
+    }
+    return 0;
+  }
+
+  void _sortLeases(List<DhcpLease> list) {
+    switch (_sortBy) {
+      case 'ip_asc':
+        list.sort((a, b) => _compareIp(a.address, b.address));
+        break;
+      case 'ip_desc':
+        list.sort((a, b) => _compareIp(b.address, a.address));
+        break;
+      case 'mac_asc':
+        list.sort((a, b) => a.macAddress.toLowerCase().compareTo(b.macAddress.toLowerCase()));
+        break;
+      case 'static_first':
+        list.sort((a, b) {
+          if (a.isDynamic != b.isDynamic) {
+            return a.isDynamic ? 1 : -1;
+          }
+          return _compareIp(a.address, b.address);
+        });
+        break;
+      case 'dynamic_first':
+        list.sort((a, b) {
+          if (a.isDynamic != b.isDynamic) {
+            return a.isDynamic ? -1 : 1;
+          }
+          return _compareIp(a.address, b.address);
+        });
+        break;
+      case 'server_asc':
+        list.sort((a, b) {
+          final cmp = a.server.toLowerCase().compareTo(b.server.toLowerCase());
+          if (cmp != 0) return cmp;
+          return _compareIp(a.address, b.address);
+        });
+        break;
+    }
+  }
+
+  String _getSortLabel(String key) {
+    switch (key) {
+      case 'ip_asc':
+        return 'IP (Terkecil)';
+      case 'ip_desc':
+        return 'IP (Terbesar)';
+      case 'mac_asc':
+        return 'MAC (A - Z)';
+      case 'static_first':
+        return 'Static Duluan';
+      case 'dynamic_first':
+        return 'Dynamic Duluan';
+      case 'server_asc':
+        return 'Server (A - Z)';
+      default:
+        return 'Default';
+    }
+  }
+
+  void showSortOptions() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) {
+        final theme = Theme.of(ctx);
+        final colorScheme = theme.colorScheme;
+        final bottomInset = MediaQuery.of(ctx).padding.bottom;
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            return SafeArea(
+              top: false,
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: bottomInset + 36),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                        child: Row(
+                          children: [
+                            Icon(Icons.sort_rounded, color: colorScheme.primary),
+                            const SizedBox(width: 12),
+                            Text(
+                              'Urutkan DHCP Lease',
+                              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Divider(height: 1),
+                      RadioGroup<String>(
+                        groupValue: _sortBy,
+                        onChanged: (val) {
+                          if (val != null) {
+                            Navigator.pop(ctx);
+                            setState(() {
+                              _sortBy = val;
+                              _visibleLeasesCount = 25;
+                            });
+                            ToastBanner.show(
+                              context,
+                              message: 'Diurutkan berdasarkan ${_getSortLabel(val)}.',
+                              type: ToastType.info,
+                            );
+                          }
+                        },
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            RadioListTile<String>(
+                              value: 'ip_asc',
+                              title: const Text('IP Address (Terkecil ke Terbesar)'),
+                              subtitle: const Text('Contoh: 192.168.1.2 sebelum 192.168.1.10'),
+                            ),
+                            RadioListTile<String>(
+                              value: 'ip_desc',
+                              title: const Text('IP Address (Terbesar ke Terkecil)'),
+                              subtitle: const Text('Urutkan dari alamat host paling tinggi'),
+                            ),
+                            RadioListTile<String>(
+                              value: 'mac_asc',
+                              title: const Text('MAC Address (A - Z)'),
+                              subtitle: const Text('Urutkan menurut alamat fisik hardware'),
+                            ),
+                            RadioListTile<String>(
+                              value: 'static_first',
+                              title: const Text('Status: Static Duluan'),
+                              subtitle: const Text('Perangkat yang telah dikunci/reservasi di atas'),
+                            ),
+                            RadioListTile<String>(
+                              value: 'dynamic_first',
+                              title: const Text('Status: Dynamic Duluan'),
+                              subtitle: const Text('Perangkat dynamic lease aktif di atas'),
+                            ),
+                            RadioListTile<String>(
+                              value: 'server_asc',
+                              title: const Text('Server DHCP (A - Z)'),
+                              subtitle: const Text('Dikelompokkan menurut nama interface server'),
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
 
   // Infinite Scroll Lazy Load Chunking (25 data per chunk)
   int _visibleLeasesCount = 25;
@@ -301,6 +470,8 @@ class DhcpScreenState extends State<DhcpScreen> {
       return true;
     }).toList();
 
+    _sortLeases(filtered);
+
     final visibleItems = filtered.take(_visibleLeasesCount).toList();
     final servers = _leases.map((l) => l.server).where((s) => s.isNotEmpty).toSet().toList();
 
@@ -385,25 +556,37 @@ class DhcpScreenState extends State<DhcpScreen> {
                       controller: _leaseScrollController,
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                       children: [
-                              // Optional Server Filter Buttons (if router has multiple DHCP servers)
-                              if (servers.length > 1) ...[
-                                SingleChildScrollView(
-                                  scrollDirection: Axis.horizontal,
-                                  child: Row(
-                                    children: [
-                                      _buildServerButton('all', 'Semua Server', colorScheme),
-                                      const SizedBox(width: 8),
-                                      ...servers.map((s) => Padding(
-                                        padding: const EdgeInsets.only(right: 8),
-                                        child: _buildServerButton(s, 'Server: $s', colorScheme),
-                                      )),
-                                    ],
-                                  ),
+                        // Sort & Filter row
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              OutlinedButton.icon(
+                                onPressed: showSortOptions,
+                                icon: const Icon(Icons.sort_rounded, size: 16),
+                                label: Text('Urut: ${_getSortLabel(_sortBy)}'),
+                                style: OutlinedButton.styleFrom(
+                                  visualDensity: VisualDensity.compact,
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  foregroundColor: colorScheme.primary,
+                                  side: BorderSide(color: colorScheme.outlineVariant),
                                 ),
-                                const SizedBox(height: 10),
+                              ),
+                              if (servers.length > 1) ...[
+                                const SizedBox(width: 8),
+                                _buildServerButton('all', 'Semua Server', colorScheme),
+                                const SizedBox(width: 8),
+                                ...servers.map((s) => Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: _buildServerButton(s, 'Server: $s', colorScheme),
+                                )),
                               ],
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 10),
 
-                              // Active search indicator (if searched from AppBar)
+                        // Active search indicator (if searched from AppBar)
                               if (_searchQuery.isNotEmpty) ...[
                                 Row(
                                   children: [
@@ -421,7 +604,20 @@ class DhcpScreenState extends State<DhcpScreen> {
                     Center(
                       child: Padding(
                         padding: const EdgeInsets.all(36),
-                        child: Text('Tidak ada DHCP lease yang cocok.', style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13)),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.search_off_rounded, size: 40, color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6)),
+                            const SizedBox(height: 12),
+                            Text(
+                              _searchQuery.isNotEmpty
+                                  ? 'Tidak ada DHCP lease yang cocok dengan "$_searchQuery".'
+                                  : 'Tidak ada data DHCP lease yang ditemukan.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13),
+                            ),
+                          ],
+                        ),
                       ),
                     )
                   else ...[
@@ -435,21 +631,11 @@ class DhcpScreenState extends State<DhcpScreen> {
                       final borderColor = isSelected ? colorScheme.primary : colorScheme.outlineVariant;
                       final titleColor = colorScheme.onSurface;
                       final subtitleColor = colorScheme.onSurfaceVariant;
-                      final dividerColor = colorScheme.outlineVariant;
 
                       final isBound = lease.status == 'bound';
-                      final vendor = FormatUtils.detectDeviceVendor(lease.macAddress, lease.hostName);
-                      final displayName = lease.hostName.isNotEmpty ? lease.hostName : lease.address;
-
-                      final badgeBg = lease.isDynamic
-                          ? colorScheme.surfaceContainerHighest
-                          : colorScheme.primaryContainer;
-                      final badgeFg = lease.isDynamic
-                          ? colorScheme.onSurfaceVariant
-                          : colorScheme.onPrimaryContainer;
 
                       return Padding(
-                        padding: const EdgeInsets.only(bottom: 12.0),
+                        padding: const EdgeInsets.only(bottom: 10.0),
                         child: Card(
                           elevation: 0,
                           color: cardBg,
@@ -466,197 +652,112 @@ class DhcpScreenState extends State<DhcpScreen> {
                               }
                             },
                             onLongPress: () => _toggleSelectLease(lease.id),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 8.0),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+                              leading: isSelectionMode
+                                  ? Icon(
+                                      isSelected ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+                                      color: isSelected ? colorScheme.primary : subtitleColor,
+                                      size: 20,
+                                    )
+                                  : Container(
+                                      width: 10,
+                                      height: 10,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: isBound ? FNetTheme.emerald : colorScheme.outline,
+                                      ),
+                                    ),
+                              minLeadingWidth: 0,
+                              title: Row(
                                 children: [
-                                  // Header: Status dot, Title, Dynamic/Static badge
-                                  ListTile(
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 16.0),
-                                    leading: isSelectionMode
-                                        ? Icon(
-                                            isSelected ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
-                                            color: isSelected ? colorScheme.primary : subtitleColor,
-                                            size: 20,
-                                          )
-                                        : Container(
-                                            width: 10,
-                                            height: 10,
-                                            decoration: BoxDecoration(
-                                              shape: BoxShape.circle,
-                                              color: isBound ? FNetTheme.emerald : colorScheme.outline,
-                                            ),
+                                  Flexible(
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(4),
+                                      onTap: isSelectionMode
+                                          ? () => _toggleSelectLease(lease.id)
+                                          : () {
+                                              Clipboard.setData(ClipboardData(text: lease.address));
+                                              ToastBanner.show(
+                                                context,
+                                                message: 'Alamat IP ${lease.address} berhasil disalin.',
+                                                type: ToastType.info,
+                                              );
+                                            },
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(vertical: 2.0),
+                                        child: Text(
+                                          lease.address,
+                                          style: TextStyle(
+                                            color: titleColor,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 15,
                                           ),
-                                    minLeadingWidth: 0,
-                                    title: Text(
-                                      displayName,
-                                      style: TextStyle(
-                                        color: titleColor,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16,
-                                      ),
-                                    ),
-                                  trailing: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: badgeBg,
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    child: Text(
-                                      lease.isDynamic ? 'Dynamic' : 'Static',
-                                      style: TextStyle(
-                                        color: badgeFg,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
                                       ),
                                     ),
                                   ),
-                                  subtitle: Padding(
-                                    padding: const EdgeInsets.only(top: 6.0),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        if (lease.comment.isNotEmpty)
-                                          Padding(
-                                            padding: const EdgeInsets.only(bottom: 2.0),
-                                            child: Text(
-                                              'Catatan: ${lease.comment}',
-                                              style: TextStyle(color: subtitleColor, fontSize: 13),
-                                            ),
-                                          ),
-                                        InkWell(
-                                          borderRadius: BorderRadius.circular(6),
-                                          onTap: () {
-                                            Clipboard.setData(ClipboardData(text: lease.address));
-                                            ToastBanner.show(context, message: 'Alamat IP ${lease.address} berhasil disalin.', type: ToastType.info);
-                                          },
-                                          onLongPress: () {
-                                            Clipboard.setData(ClipboardData(text: lease.macAddress));
-                                            ToastBanner.show(context, message: 'MAC Address ${lease.macAddress} berhasil disalin.', type: ToastType.info);
-                                          },
-                                          child: Padding(
-                                            padding: const EdgeInsets.symmetric(vertical: 2.0),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Flexible(
-                                                  child: Text(
-                                                    'IP: ${lease.address} • MAC: ${lease.macAddress}',
-                                                    style: FNetTheme.monoStyle(
-                                                      fontSize: 12,
-                                                      color: subtitleColor,
-                                                      fontWeight: FontWeight.w600,
-                                                    ),
-                                                    overflow: TextOverflow.ellipsis,
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 4),
-                                                Icon(Icons.copy_rounded, size: 13, color: subtitleColor),
-                                              ],
-                                            ),
-                                          ),
+                                  if (lease.server.isNotEmpty) ...[
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: colorScheme.surfaceContainerHighest,
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        lease.server,
+                                        style: FNetTheme.monoStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: colorScheme.onSurfaceVariant,
                                         ),
-                                        const SizedBox(height: 4),
-                                        Wrap(
-                                          spacing: 6,
-                                          runSpacing: 4,
-                                          crossAxisAlignment: WrapCrossAlignment.center,
-                                          children: [
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                              decoration: BoxDecoration(
-                                                color: colorScheme.secondaryContainer,
-                                                borderRadius: BorderRadius.circular(8),
-                                              ),
-                                              child: Text(
-                                                vendor,
-                                                style: TextStyle(
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: colorScheme.onSecondaryContainer,
-                                                ),
-                                              ),
-                                            ),
-                                            if (lease.server.isNotEmpty)
-                                              Text(
-                                                'Server: ${lease.server}',
-                                                style: FNetTheme.monoStyle(fontSize: 11, color: subtitleColor),
-                                              ),
-                                            if (lease.expiresAfter.isNotEmpty)
-                                              Text(
-                                                '• Sisa: ${lease.expiresAfter}',
-                                                style: FNetTheme.monoStyle(fontSize: 11, color: subtitleColor),
-                                              ),
-                                          ],
-                                        ),
-                                      ],
+                                      ),
                                     ),
-                                  ),
-                                ),
-
-                                const SizedBox(height: 4),
-                                Divider(color: dividerColor, height: 1, thickness: 1),
-                                const SizedBox(height: 10),
-
-                                // Action Buttons (NO "Ke PPPoE")
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
-                                  child: Row(
-                                    children: [
-                                      if (lease.isDynamic)
-                                        FilledButton.tonalIcon(
-                                          onPressed: () => _handleToggleStatic(lease),
-                                          icon: const Icon(Icons.push_pin_outlined, size: 18),
-                                          label: const Text('Jadikan Static', style: TextStyle(fontWeight: FontWeight.bold)),
-                                          style: FilledButton.styleFrom(
-                                            backgroundColor: colorScheme.secondaryContainer,
-                                            foregroundColor: colorScheme.onSecondaryContainer,
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(12),
-                                            ),
-                                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                                          ),
-                                        )
-                                      else
-                                        OutlinedButton.icon(
-                                          onPressed: () => _handleToggleStatic(lease),
-                                          icon: const Icon(Icons.push_pin, size: 18),
-                                          label: const Text('Lepas Reservasi', style: TextStyle(fontWeight: FontWeight.bold)),
-                                          style: OutlinedButton.styleFrom(
-                                            foregroundColor: colorScheme.primary,
-                                            side: BorderSide(
-                                              color: colorScheme.outline,
-                                              width: 1.2,
-                                            ),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(12),
-                                            ),
-                                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                                          ),
-                                        ),
-
-                                      const Spacer(),
-
-                                      IconButton(
-                                        tooltip: 'Salin IP',
-                                        icon: const Icon(Icons.copy_outlined, size: 20),
-                                        color: subtitleColor,
-                                        onPressed: () {
-                                          Clipboard.setData(ClipboardData(text: lease.address));
-                                          ToastBanner.show(context, message: 'Alamat IP ${lease.address} berhasil disalin.', type: ToastType.info);
+                                  ],
+                                ],
+                              ),
+                              subtitle: Padding(
+                                padding: const EdgeInsets.only(top: 2.0),
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(4),
+                                  onTap: isSelectionMode
+                                      ? () => _toggleSelectLease(lease.id)
+                                      : () {
+                                          Clipboard.setData(ClipboardData(text: lease.macAddress));
+                                          ToastBanner.show(
+                                            context,
+                                            message: 'MAC Address ${lease.macAddress} berhasil disalin.',
+                                            type: ToastType.info,
+                                          );
                                         },
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 2.0),
+                                    child: Text(
+                                      'MAC: ${lease.macAddress}',
+                                      style: FNetTheme.monoStyle(
+                                        fontSize: 12,
+                                        color: subtitleColor,
+                                        fontWeight: FontWeight.w500,
                                       ),
-                                    ],
+                                    ),
                                   ),
                                 ),
-                              ],
+                              ),
+                              trailing: IconButton(
+                                icon: Icon(
+                                  lease.isDynamic ? Icons.lock_open_rounded : Icons.lock_rounded,
+                                  color: lease.isDynamic ? colorScheme.onSurfaceVariant : colorScheme.primary,
+                                  size: 22,
+                                ),
+                                tooltip: lease.isDynamic ? 'Jadikan Static' : 'Lepas Reservasi',
+                                onPressed: isSelectionMode ? null : () => _handleToggleStatic(lease),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    );
+                      );
                     }),
                     if (visibleItems.length < filtered.length)
                       Padding(

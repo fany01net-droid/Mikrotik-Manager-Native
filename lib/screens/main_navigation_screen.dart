@@ -142,6 +142,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           onSwitchProfile: _handleSwitchProfile,
           onProfilesUpdated: _loadProfiles,
           onLogout: widget.onLogout,
+          onPollingIntervalChanged: (sec) {
+            _berandaKey.currentState?.updatePollingInterval(sec);
+          },
         );
       default:
         return const SizedBox.shrink();
@@ -223,6 +226,26 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                   ),
                 ),
               ),
+              actions: [
+                IconButton(
+                  tooltip: 'Urutkan Hasil',
+                  icon: const Icon(Icons.sort_rounded),
+                  onPressed: () {
+                    switch (_currentPageIndex) {
+                      case 1:
+                        _pppoeKey.currentState?.showSortOptions();
+                        break;
+                      case 2:
+                        _hotspotKey.currentState?.showSortOptions();
+                        break;
+                      case 3:
+                        _dhcpKey.currentState?.showSortOptions();
+                        break;
+                    }
+                  },
+                ),
+                const SizedBox(width: 4),
+              ],
             )
           : AppBar(
               title: Text(
@@ -300,7 +323,24 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                       ),
                     ],
                   ),
-                if (_currentPageIndex >= 1 && _currentPageIndex <= 3)
+                if (_currentPageIndex >= 1 && _currentPageIndex <= 3) ...[
+                  IconButton(
+                    tooltip: 'Urutkan Data',
+                    icon: const Icon(Icons.sort_rounded),
+                    onPressed: () {
+                      switch (_currentPageIndex) {
+                        case 1:
+                          _pppoeKey.currentState?.showSortOptions();
+                          break;
+                        case 2:
+                          _hotspotKey.currentState?.showSortOptions();
+                          break;
+                        case 3:
+                          _dhcpKey.currentState?.showSortOptions();
+                          break;
+                      }
+                    },
+                  ),
                   IconButton(
                     tooltip: 'Cari',
                     icon: const Icon(Icons.search),
@@ -310,6 +350,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                       });
                     },
                   ),
+                ],
                 const SizedBox(width: 8),
               ],
             ),
@@ -368,6 +409,7 @@ class SettingsContentPage extends StatefulWidget {
   final ValueChanged<String>? onSwitchProfile;
   final VoidCallback? onProfilesUpdated;
   final VoidCallback? onLogout;
+  final ValueChanged<int>? onPollingIntervalChanged;
 
   const SettingsContentPage({
     super.key,
@@ -378,6 +420,7 @@ class SettingsContentPage extends StatefulWidget {
     this.onSwitchProfile,
     this.onProfilesUpdated,
     this.onLogout,
+    this.onPollingIntervalChanged,
   });
 
   @override
@@ -387,6 +430,107 @@ class SettingsContentPage extends StatefulWidget {
 class SettingsContentPageState extends State<SettingsContentPage> {
   bool _autoReconnect = true;
   bool _alertCpu = true;
+  int _pollingInterval = 2;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPollingInterval();
+  }
+
+  Future<void> _loadPollingInterval() async {
+    final interval = await StorageService.getPollingInterval();
+    if (mounted) {
+      setState(() => _pollingInterval = interval);
+    }
+  }
+
+  String _getPollingIntervalLabel(int seconds) {
+    switch (seconds) {
+      case 1:
+        return 'Cepat (1 detik)';
+      case 2:
+        return 'Normal (2 detik)';
+      case 3:
+        return 'Standar (3 detik)';
+      case 5:
+        return 'Hemat Kuota (5 detik)';
+      case 10:
+        return 'Santai (10 detik)';
+      default:
+        return '$seconds detik';
+    }
+  }
+
+  void _showPollingIntervalDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (dialogCtx, setDialogState) {
+            final theme = Theme.of(dialogCtx);
+            final colorScheme = theme.colorScheme;
+            final options = [1, 2, 3, 5, 10];
+
+            return AlertDialog(
+              icon: Icon(Icons.timer_outlined, color: colorScheme.primary),
+              title: const Text('Interval Polling Real-time', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+              contentPadding: const EdgeInsets.symmetric(vertical: 12),
+              content: RadioGroup<int>(
+                groupValue: _pollingInterval,
+                onChanged: (val) async {
+                  if (val != null) {
+                    Navigator.pop(dialogCtx);
+                    await StorageService.setPollingInterval(val);
+                    if (mounted) {
+                      setState(() => _pollingInterval = val);
+                    }
+                    widget.onPollingIntervalChanged?.call(val);
+                    _showNotification('Interval polling diubah ke $val detik.');
+                  }
+                },
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: options.map((sec) {
+                    final isSelected = _pollingInterval == sec;
+                    return RadioListTile<int>(
+                      value: sec,
+                      title: Text(
+                        _getPollingIntervalLabel(sec),
+                        style: TextStyle(
+                          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                          fontSize: 13,
+                          color: isSelected ? colorScheme.primary : colorScheme.onSurface,
+                        ),
+                      ),
+                      subtitle: Text(
+                        sec == 1
+                            ? 'Responsif tinggi, pantau trafik live'
+                            : sec == 2
+                                ? 'Default seimbang dan akurat'
+                                : sec == 3
+                                    ? 'Stabil dan hemat resource'
+                                    : sec == 5
+                                        ? 'Hemat daya baterai & kuota data'
+                                        : 'Beban CPU router sangat minimal',
+                        style: TextStyle(fontSize: 11, color: colorScheme.onSurfaceVariant),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogCtx),
+                  child: const Text('Tutup'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
 
   void _showNotification(String msg, {bool isSuccess = true, bool atTop = false}) {
     ToastBanner.show(
@@ -871,17 +1015,33 @@ class SettingsContentPageState extends State<SettingsContentPage> {
         ),
         const SizedBox(height: 16),
 
-        // Auto Reconnect Card
+        // Section: Pemantauan & Jaringan
+        _buildSectionHeader('Pemantauan & Jaringan', colorScheme.primary),
         Card(
           elevation: 0,
           color: colorScheme.surfaceContainer,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          child: SwitchListTile(
-            secondary: const Icon(Icons.sync_outlined),
-            title: const Text('Auto Reconnect'),
-            subtitle: const Text('Sambungkan kembali otomatis jika koneksi putus'),
-            value: _autoReconnect,
-            onChanged: (val) => setState(() => _autoReconnect = val),
+          child: Column(
+            children: [
+              SwitchListTile(
+                secondary: const Icon(Icons.sync_outlined),
+                title: const Text('Auto Reconnect'),
+                subtitle: const Text('Sambungkan kembali otomatis jika koneksi putus'),
+                value: _autoReconnect,
+                onChanged: (val) => setState(() => _autoReconnect = val),
+              ),
+              const Divider(height: 1, indent: 16, endIndent: 16),
+              ListTile(
+                leading: const Icon(Icons.timer_outlined),
+                title: const Text('Interval Polling Real-time'),
+                subtitle: Text(
+                  _getPollingIntervalLabel(_pollingInterval),
+                  style: TextStyle(color: colorScheme.onSurfaceVariant),
+                ),
+                trailing: const Icon(Icons.chevron_right_rounded, size: 20),
+                onTap: _showPollingIntervalDialog,
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 16),

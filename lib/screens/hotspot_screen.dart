@@ -43,6 +43,150 @@ class HotspotScreenState extends State<HotspotScreen> {
 
   String _searchQuery = '';
   String _userFilter = 'all';
+  String _voucherSort = 'name_asc';
+
+  void _sortVouchers(List<HotspotUser> list) {
+    switch (_voucherSort) {
+      case 'name_asc':
+        list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+        break;
+      case 'name_desc':
+        list.sort((a, b) => b.name.toLowerCase().compareTo(a.name.toLowerCase()));
+        break;
+      case 'profile':
+        list.sort((a, b) {
+          final cmp = a.profile.toLowerCase().compareTo(b.profile.toLowerCase());
+          if (cmp != 0) return cmp;
+          return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+        });
+        break;
+      case 'status':
+        list.sort((a, b) {
+          if (a.disabled != b.disabled) {
+            return a.disabled ? 1 : -1;
+          }
+          return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+        });
+        break;
+      case 'uptime':
+        list.sort((a, b) => b.uptime.compareTo(a.uptime));
+        break;
+    }
+  }
+
+  String _getSortLabel(String key) {
+    switch (key) {
+      case 'name_asc':
+        return 'Kode / Nama (A - Z)';
+      case 'name_desc':
+        return 'Kode / Nama (Z - A)';
+      case 'profile':
+        return 'Paket Profil (A - Z)';
+      case 'status':
+        return 'Status (Aktif Duluan)';
+      case 'uptime':
+        return 'Uptime Terbanyak';
+      default:
+        return 'Default';
+    }
+  }
+
+  void showSortOptions() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) {
+        final theme = Theme.of(ctx);
+        final colorScheme = theme.colorScheme;
+        final bottomInset = MediaQuery.of(ctx).padding.bottom;
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            return SafeArea(
+              top: false,
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: bottomInset + 36),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                        child: Row(
+                          children: [
+                            Icon(Icons.sort_rounded, color: colorScheme.primary),
+                            const SizedBox(width: 12),
+                            Text(
+                              'Urutkan Voucher Hotspot',
+                              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Divider(height: 1),
+                      RadioGroup<String>(
+                        groupValue: _voucherSort,
+                        onChanged: (val) {
+                          if (val != null) {
+                            Navigator.pop(ctx);
+                            setState(() {
+                              _voucherSort = val;
+                              _visibleVouchersCount = 25;
+                            });
+                            ToastBanner.show(
+                              context,
+                              message: 'Diurutkan berdasarkan ${_getSortLabel(val)}.',
+                              type: ToastType.info,
+                            );
+                          }
+                        },
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            RadioListTile<String>(
+                              value: 'name_asc',
+                              title: const Text('Kode Voucher / Nama (A - Z)'),
+                              subtitle: const Text('Urutkan abjad dari A ke Z'),
+                            ),
+                            RadioListTile<String>(
+                              value: 'name_desc',
+                              title: const Text('Kode Voucher / Nama (Z - A)'),
+                              subtitle: const Text('Urutkan abjad dari Z ke A'),
+                            ),
+                            RadioListTile<String>(
+                              value: 'profile',
+                              title: const Text('Paket Profil (A - Z)'),
+                              subtitle: const Text('Dikelompokkan menurut paket profil voucher'),
+                            ),
+                            RadioListTile<String>(
+                              value: 'status',
+                              title: const Text('Status: Aktif Duluan'),
+                              subtitle: const Text('Voucher aktif di atas, nonaktif di bawah'),
+                            ),
+                            RadioListTile<String>(
+                              value: 'uptime',
+                              title: const Text('Uptime Terbanyak'),
+                              subtitle: const Text('Voucher dengan durasi pemakaian tertinggi'),
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
 
   // Multi-select / Hold-to-select support
   final Set<String> _selectedVoucherIds = {};
@@ -1008,7 +1152,7 @@ class HotspotScreenState extends State<HotspotScreen> {
   }
 
   List<HotspotUser> _getFilteredVouchers() {
-    return _users.where((u) {
+    final list = _users.where((u) {
       if (_searchQuery.isNotEmpty) {
         final q = _searchQuery.toLowerCase();
         if (!u.name.toLowerCase().contains(q) && !u.comment.toLowerCase().contains(q)) {
@@ -1023,6 +1167,8 @@ class HotspotScreenState extends State<HotspotScreen> {
       }
       return true;
     }).toList();
+    _sortVouchers(list);
+    return list;
   }
 
   @override
@@ -1308,6 +1454,18 @@ class HotspotScreenState extends State<HotspotScreen> {
           scrollDirection: Axis.horizontal,
           child: Row(
             children: [
+              OutlinedButton.icon(
+                onPressed: showSortOptions,
+                icon: const Icon(Icons.sort_rounded, size: 16),
+                label: Text('Urut: ${_getSortLabel(_voucherSort)}'),
+                style: OutlinedButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  foregroundColor: colorScheme.primary,
+                  side: BorderSide(color: colorScheme.outlineVariant),
+                ),
+              ),
+              const SizedBox(width: 8),
               _buildFilterButton('all', 'Semua', totalCount, Icons.list_alt, colorScheme),
               const SizedBox(width: 8),
               _buildFilterButton('active', 'Aktif', activeCount, Icons.check_circle_outline, colorScheme),
@@ -1336,7 +1494,20 @@ class HotspotScreenState extends State<HotspotScreen> {
           Center(
             child: Padding(
               padding: const EdgeInsets.all(36),
-              child: Text('Tidak ada voucher yang cocok.', style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant)),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.search_off_rounded, size: 40, color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6)),
+                  const SizedBox(height: 12),
+                  Text(
+                    _searchQuery.isNotEmpty
+                        ? 'Tidak ada voucher hotspot yang cocok dengan "$_searchQuery".'
+                        : 'Tidak ada data voucher untuk filter yang dipilih.',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+                  ),
+                ],
+              ),
             ),
           )
         else ...[
@@ -1393,7 +1564,7 @@ class HotspotScreenState extends State<HotspotScreen> {
                 primaryActionIcon: Icons.receipt_long_outlined,
                 onPrimaryAction: () => _showPrintVoucherReceipt(user),
                 secondaryActionLabel: 'Reset MAC',
-                secondaryActionIcon: Icons.phonelink_erase,
+                secondaryActionIcon: Icons.delete_sweep_rounded,
                 onSecondaryAction: () => _handleResetMac(user),
                 secondaryActionColor: colorScheme.primary,
                 secondaryActionBorderColor: colorScheme.outline,
@@ -1404,6 +1575,8 @@ class HotspotScreenState extends State<HotspotScreen> {
                 onTap: () {
                   if (_selectedVoucherIds.isNotEmpty) {
                     _toggleSelectVoucher(user.id);
+                  } else {
+                    _showSingleVoucherModal(editingUser: user);
                   }
                 },
               ),

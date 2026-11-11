@@ -198,50 +198,40 @@ class UserCardM3 extends StatelessWidget {
             ),
 
             if (hasPrimaryAction || hasSecondaryAction || onEdit != null) ...[
-              const SizedBox(height: 4),
+              const SizedBox(height: 2),
               Divider(color: dividerColor, height: 1, thickness: 1),
-              const SizedBox(height: 10),
+              const SizedBox(height: 6),
 
-              // Bagian Aksi / Buttons
+              // Bagian Aksi / Buttons (Icon-only M3)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 2.0),
                 child: Row(
                   children: [
-                    // Tombol Aksi 1 (Filled Tonal Button M3)
+                    // Tombol Aksi 1 (Icon Only - Filled Tonal M3)
                     if (hasPrimaryAction)
-                      FilledButton.tonalIcon(
+                      IconButton.filledTonal(
                         onPressed: onPrimaryAction ?? onAddDays,
-                        icon: Icon(primaryActionIcon ?? Icons.more_time_rounded, size: 18),
-                        label: Text(
-                          primaryActionLabel ?? '+30 Hari',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        style: FilledButton.styleFrom(
+                        icon: Icon(primaryActionIcon ?? Icons.more_time_rounded, size: 20),
+                        tooltip: primaryActionLabel ?? 'Perpanjang +30 Hari',
+                        style: IconButton.styleFrom(
                           backgroundColor: colorScheme.secondaryContainer,
                           foregroundColor: colorScheme.onSecondaryContainer,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                         ),
                       ),
                     if (hasPrimaryAction && hasSecondaryAction)
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 8),
 
-                    // Tombol Aksi 2 (Outlined Button M3)
+                    // Tombol Aksi 2 (Icon Only - Outlined M3)
                     if (hasSecondaryAction)
-                      OutlinedButton.icon(
+                      IconButton.outlined(
                         onPressed: onSecondaryAction ?? onIsolir,
                         icon: Icon(
                           secondaryActionIcon ??
-                              (isIsolir ? Icons.lock_open_rounded : Icons.lock_outline_rounded),
-                          size: 18,
+                              (isIsolir ? Icons.lock_open_rounded : Icons.block_rounded),
+                          size: 20,
                         ),
-                        label: Text(
-                          secondaryActionLabel ?? (isIsolir ? 'Buka Isolir' : 'Isolir'),
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        style: OutlinedButton.styleFrom(
+                        tooltip: secondaryActionLabel ?? (isIsolir ? 'Buka Isolir' : 'Isolir'),
+                        style: IconButton.styleFrom(
                           foregroundColor: secondaryActionColor ??
                               (isIsolir ? colorScheme.primary : colorScheme.error),
                           side: BorderSide(
@@ -249,10 +239,6 @@ class UserCardM3 extends StatelessWidget {
                                 (isIsolir ? colorScheme.outline : colorScheme.error),
                             width: 1.2,
                           ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                         ),
                       ),
 
@@ -262,6 +248,7 @@ class UserCardM3 extends StatelessWidget {
                     if (onEdit != null)
                       IconButton(
                         onPressed: onEdit,
+                        tooltip: 'Edit',
                         icon: Icon(Icons.edit_outlined, color: colorScheme.onSurfaceVariant, size: 20),
                         splashRadius: 20,
                       ),

@@ -188,6 +188,36 @@ Dokumen ini mencatat riwayat percakapan, keputusan arsitektur, dan evolusi penge
   - Kartu kini otomatis membagi dan mengisi lebar baris secara penuh (*rata kanan-kiri*): 3 kolom pada ponsel, 4 kolom pada tablet, dan 6 kolom pada layar desktop.
   - Penataan seluruh elemen internal kartu (ikon port, status LED, nama interface, dan teks status RUNNING/NO LINK) dibuat presisi rata tengah (*center aligned*).
 
+---
+
+### 15. Fitur Interval Polling, Sort Data 3 Modul, Redesain Kartu Minimalis & Penerapan antislop-ui
+- **Komponen**:
+  - [`lib/services/storage_service.dart`](lib/services/storage_service.dart)
+  - [`lib/screens/beranda_screen.dart`](lib/screens/beranda_screen.dart)
+  - [`lib/screens/main_navigation_screen.dart`](lib/screens/main_navigation_screen.dart)
+  - [`lib/screens/dhcp_screen.dart`](lib/screens/dhcp_screen.dart)
+  - [`lib/screens/pppoe_screen.dart`](lib/screens/pppoe_screen.dart)
+  - [`lib/screens/hotspot_screen.dart`](lib/screens/hotspot_screen.dart)
+  - [`lib/widgets/user_card_m3.dart`](lib/widgets/user_card_m3.dart)
+- **Implementasi**:
+  - **Interval Polling Real-time**:
+    - Penambahan preferensi interval polling (1 detik, 2 detik default, 3 detik, 5 detik, 10 detik) tersimpan via SharedPreferences.
+    - Pengaturan terpusat di halaman Pengaturan dalam grup *Pemantauan & Jaringan* dengan dialog M3 `RadioGroup<int>` dan `RadioListTile<int>`.
+    - Sinkronisasi real-time langsung memperbarui timer live polling dashboard tanpa perlu reload aplikasi.
+  - **Redesain Kartu DHCP Minimalis**:
+    - Pembersihan badge vendor perangkat dan sisa waktu sewa; tata letak menjadi 2 baris bersih (Baris 1: IP & Server, Baris 2: MAC).
+    - Tombol aksi bawah dihapus; status Dynamic/Static diringkas murni ikon gembok terbuka (`Icons.lock_open_rounded`) dan gembok terkunci (`Icons.lock_rounded`) di kanan atas yang dapat langsung ditekan untuk mengubah reservasi.
+    - Tap pada teks IP langsung menyalin Alamat IP, tap pada teks MAC langsung menyalin MAC Address.
+  - **Fitur Sort (Pengurutan Data) PPPoE, Hotspot & DHCP**:
+    - Tombol sortir cepat di AppBar atas dan tombol sortir sejajar di bilah filter setiap halaman.
+    - Modal bottom sheet resmi Material 3 dengan `RadioGroup<String>` & `RadioListTile<String>`, dilengkapi scroll view dan padding bawah aman (`bottomInset + 36px`).
+    - Kriteria pengurutan lengkap: Nama (A-Z/Z-A), Jatuh Tempo, Status Aktif, IP numerik, MAC hardware, dan Paket Profil.
+  - **Penerapan Standar antislop-ui**:
+    - Kartu pelanggan PPPoE dan voucher Hotspot: Tombol perpanjang masa aktif +30 hari menjadi icon-only `IconButton.filledTonal` (`Icons.more_time_rounded`), tombol isolir diganti menjadi ikon block (`Icons.block_rounded`) saat aktif dan buka gembok saat terisolir.
+    - Tombol Reset MAC Hotspot diringkas menjadi icon-only `IconButton.outlined` dengan ikon sapu trash (`Icons.delete_sweep_rounded`).
+    - Penyelarasan tinggi tombol sortir dan filter menggunakan `OutlinedButton.icon` dengan `visualDensity: VisualDensity.compact`.
+    - Peningkatan empty state menjadi context-aware (pencarian vs filter) dengan ikon `Icons.search_off_rounded`.
+
 
 
 

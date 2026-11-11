@@ -11,6 +11,7 @@ class StorageService {
   static const String _rememberMeKey = 'fnet_remember_me';
   static const String _savedUsernameKey = 'fnet_saved_username';
   static const String _savedPasswordKey = 'fnet_saved_password';
+  static const String _pollingIntervalKey = 'fnet_polling_interval';
 
   static final RouterProfile defaultProfile = RouterProfile(
     id: 'default-profile',
@@ -147,5 +148,16 @@ class StorageService {
     await prefs.setBool(_rememberMeKey, false);
     await prefs.remove(_savedUsernameKey);
     await prefs.remove(_savedPasswordKey);
+  }
+
+  // Polling Interval in seconds (default: 2)
+  static Future<int> getPollingInterval() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_pollingIntervalKey) ?? 2;
+  }
+
+  static Future<void> setPollingInterval(int seconds) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_pollingIntervalKey, seconds);
   }
 }

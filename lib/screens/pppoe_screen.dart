@@ -43,7 +43,173 @@ class PppoeScreenState extends State<PppoeScreen> {
 
   String _searchQuery = '';
   String _secretFilter = 'all';
+  String _secretSort = 'name_asc';
   final TextEditingController _searchController = TextEditingController();
+
+  void _sortSecrets(List<PppSecret> list) {
+    switch (_secretSort) {
+      case 'name_asc':
+        list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+        break;
+      case 'name_desc':
+        list.sort((a, b) => b.name.toLowerCase().compareTo(a.name.toLowerCase()));
+        break;
+      case 'expiry_asc':
+        list.sort((a, b) {
+          final pa = PppoeUtils.parseExpiryFromComment(a.comment);
+          final pb = PppoeUtils.parseExpiryFromComment(b.comment);
+          final da = pa.daysRemaining ?? 999999;
+          final db = pb.daysRemaining ?? 999999;
+          return da.compareTo(db);
+        });
+        break;
+      case 'expiry_desc':
+        list.sort((a, b) {
+          final pa = PppoeUtils.parseExpiryFromComment(a.comment);
+          final pb = PppoeUtils.parseExpiryFromComment(b.comment);
+          final da = pa.daysRemaining ?? -999999;
+          final db = pb.daysRemaining ?? -999999;
+          return db.compareTo(da);
+        });
+        break;
+      case 'status':
+        list.sort((a, b) {
+          if (a.disabled != b.disabled) {
+            return a.disabled ? 1 : -1;
+          }
+          return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+        });
+        break;
+      case 'profile':
+        list.sort((a, b) {
+          final cmp = a.profile.toLowerCase().compareTo(b.profile.toLowerCase());
+          if (cmp != 0) return cmp;
+          return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+        });
+        break;
+    }
+  }
+
+  String _getSortLabel(String key) {
+    switch (key) {
+      case 'name_asc':
+        return 'Nama (A - Z)';
+      case 'name_desc':
+        return 'Nama (Z - A)';
+      case 'expiry_asc':
+        return 'Jatuh Tempo (Segera Habis)';
+      case 'expiry_desc':
+        return 'Jatuh Tempo (Terlama)';
+      case 'status':
+        return 'Status (Aktif Duluan)';
+      case 'profile':
+        return 'Paket / Profil (A - Z)';
+      default:
+        return 'Default';
+    }
+  }
+
+  void showSortOptions() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) {
+        final theme = Theme.of(ctx);
+        final colorScheme = theme.colorScheme;
+        final bottomInset = MediaQuery.of(ctx).padding.bottom;
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            return SafeArea(
+              top: false,
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: bottomInset + 36),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                        child: Row(
+                          children: [
+                            Icon(Icons.sort_rounded, color: colorScheme.primary),
+                            const SizedBox(width: 12),
+                            Text(
+                              'Urutkan Pelanggan PPPoE',
+                              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Divider(height: 1),
+                      RadioGroup<String>(
+                        groupValue: _secretSort,
+                        onChanged: (val) {
+                          if (val != null) {
+                            Navigator.pop(ctx);
+                            setState(() {
+                              _secretSort = val;
+                              _visibleSecretsCount = 25;
+                            });
+                            ToastBanner.show(
+                              context,
+                              message: 'Diurutkan berdasarkan ${_getSortLabel(val)}.',
+                              type: ToastType.info,
+                            );
+                          }
+                        },
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            RadioListTile<String>(
+                              value: 'name_asc',
+                              title: const Text('Nama Pelanggan (A - Z)'),
+                              subtitle: const Text('Urutkan abjad dari A ke Z'),
+                            ),
+                            RadioListTile<String>(
+                              value: 'name_desc',
+                              title: const Text('Nama Pelanggan (Z - A)'),
+                              subtitle: const Text('Urutkan abjad dari Z ke A'),
+                            ),
+                            RadioListTile<String>(
+                              value: 'expiry_asc',
+                              title: const Text('Jatuh Tempo: Segera Habis Duluan'),
+                              subtitle: const Text('Prioritaskan yang akan segera expired / kadaluarsa'),
+                            ),
+                            RadioListTile<String>(
+                              value: 'expiry_desc',
+                              title: const Text('Jatuh Tempo: Paling Lama Duluan'),
+                              subtitle: const Text('Masa aktif terpanjang di bagian atas'),
+                            ),
+                            RadioListTile<String>(
+                              value: 'status',
+                              title: const Text('Status: Aktif Duluan'),
+                              subtitle: const Text('Pelanggan aktif di atas, terisolir di bawah'),
+                            ),
+                            RadioListTile<String>(
+                              value: 'profile',
+                              title: const Text('Paket Profil (A - Z)'),
+                              subtitle: const Text('Dikelompokkan menurut nama profil langganan'),
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
 
   // Multi-select / Hold-to-select support
   final Set<String> _selectedSecretIds = {};
@@ -1001,7 +1167,7 @@ class PppoeScreenState extends State<PppoeScreen> {
   }
 
   List<PppSecret> _getFilteredSecrets() {
-    return _secrets.where((s) {
+    final list = _secrets.where((s) {
       if (_searchQuery.isNotEmpty) {
         final q = _searchQuery.toLowerCase();
         if (!s.name.toLowerCase().contains(q) && !s.comment.toLowerCase().contains(q)) {
@@ -1020,6 +1186,8 @@ class PppoeScreenState extends State<PppoeScreen> {
       }
       return true;
     }).toList();
+    _sortSecrets(list);
+    return list;
   }
 
   @override
@@ -1308,6 +1476,18 @@ class PppoeScreenState extends State<PppoeScreen> {
           scrollDirection: Axis.horizontal,
           child: Row(
             children: [
+              OutlinedButton.icon(
+                onPressed: showSortOptions,
+                icon: const Icon(Icons.sort_rounded, size: 16),
+                label: Text('Urut: ${_getSortLabel(_secretSort)}'),
+                style: OutlinedButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  foregroundColor: colorScheme.primary,
+                  side: BorderSide(color: colorScheme.outlineVariant),
+                ),
+              ),
+              const SizedBox(width: 8),
               _buildFilterButton('all', 'Semua', totalCount, Icons.list_alt, colorScheme),
               const SizedBox(width: 8),
               _buildFilterButton('active', 'Aktif', activeCount, Icons.check_circle_outline, colorScheme),
@@ -1340,9 +1520,19 @@ class PppoeScreenState extends State<PppoeScreen> {
           Center(
             child: Padding(
               padding: const EdgeInsets.all(36),
-              child: Text(
-                'Tidak ada pelanggan yang cocok.',
-                style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.search_off_rounded, size: 40, color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6)),
+                  const SizedBox(height: 12),
+                  Text(
+                    _searchQuery.isNotEmpty
+                        ? 'Tidak ada pelanggan PPPoE yang cocok dengan "$_searchQuery".'
+                        : 'Tidak ada data pelanggan untuk filter yang dipilih.',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+                  ),
+                ],
               ),
             ),
           )
@@ -1406,6 +1596,8 @@ class PppoeScreenState extends State<PppoeScreen> {
                 onTap: () {
                   if (_selectedSecretIds.isNotEmpty) {
                     _toggleSelectSecret(secret.id);
+                  } else {
+                    _showSecretDialog(editingSecret: secret);
                   }
                 },
               ),

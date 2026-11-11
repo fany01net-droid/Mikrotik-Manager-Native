@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/mikrotik_models.dart';
 import '../services/mikrotik_api_service.dart';
+import '../services/storage_service.dart';
 import '../theme/fnet_theme.dart';
 import '../utils/format_utils.dart';
 import '../widgets/gauge_widget.dart';
@@ -261,14 +262,38 @@ class BerandaScreenState extends State<BerandaScreen> {
     }
   }
 
+  int _pollingInterval = 2;
+
   @override
   void initState() {
     super.initState();
     _loadDashboardCustomization();
     refreshData();
-    _pollingTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+    _initPollingTimer();
+  }
+
+  Future<void> _initPollingTimer() async {
+    final interval = await StorageService.getPollingInterval();
+    if (!mounted) return;
+    setState(() {
+      _pollingInterval = interval;
+    });
+    _restartPollingTimer();
+  }
+
+  void _restartPollingTimer() {
+    _pollingTimer?.cancel();
+    _pollingTimer = Timer.periodic(Duration(seconds: _pollingInterval), (_) {
       _pollLiveMetrics();
     });
+  }
+
+  void updatePollingInterval(int seconds) {
+    if (_pollingInterval == seconds) return;
+    setState(() {
+      _pollingInterval = seconds;
+    });
+    _restartPollingTimer();
   }
 
   @override
