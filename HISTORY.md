@@ -226,7 +226,11 @@ Dokumen ini mencatat riwayat percakapan, keputusan arsitektur, dan evolusi penge
 ## 📜 Log Riwayat Git Commit
 
 ```text
-06e0198 feat: add dynamic customizable dashboard widgets, real CPU/RAM metrics, and CORS relay server
+dc4e29b feat: add polling interval setting, data sorting across modules, minimalist DHCP card, and antislop-ui refinements
+e4fbbf8 feat: make interface port grid responsive with full-width cards and centered content
+e987fcb feat: apply antislop UI and copywriting standards, remove redundant profile edit icons
+ff62424 feat: implement hold-to-select deletion on Hotspot and PPPoE profiles
+6571033 feat: add router public IP & ISP resolver widget, and implement hold-to-select deletion
 d60ed23 feat: replace all loading indicators with Material 3 Expressive (M3E), refine router connection test feedback, and polish UI
 812bd90 feat: implement on-demand tab loading with M3 progress indicators, constrained drawer heights, and pure M3 semantic colors
 b3e0a77 feat: complete Material 3 5-tabs app, loading indicators, theme-matched top/bottom SnackBar, and infinite scroll lazy loading
