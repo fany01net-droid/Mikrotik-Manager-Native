@@ -730,7 +730,7 @@ class PppoeScreenState extends State<PppoeScreen> {
                     items: availableProfiles.map((p) {
                       return DropdownMenuItem(
                         value: p.name,
-                        child: Text('${p.name} ${p.rateLimit.isNotEmpty ? "(${p.rateLimit})" : ""}'),
+                        child: Text(p.name),
                       );
                     }).toList(),
                     onChanged: (val) {
@@ -1476,18 +1476,6 @@ class PppoeScreenState extends State<PppoeScreen> {
           scrollDirection: Axis.horizontal,
           child: Row(
             children: [
-              OutlinedButton.icon(
-                onPressed: showSortOptions,
-                icon: const Icon(Icons.sort_rounded, size: 16),
-                label: Text('Urut: ${_getSortLabel(_secretSort)}'),
-                style: OutlinedButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  foregroundColor: colorScheme.primary,
-                  side: BorderSide(color: colorScheme.outlineVariant),
-                ),
-              ),
-              const SizedBox(width: 8),
               _buildFilterButton('all', 'Semua', totalCount, Icons.list_alt, colorScheme),
               const SizedBox(width: 8),
               _buildFilterButton('active', 'Aktif', activeCount, Icons.check_circle_outline, colorScheme),

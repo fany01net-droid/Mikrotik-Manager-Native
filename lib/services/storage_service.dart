@@ -8,6 +8,7 @@ class StorageService {
   static const String _masterAuthKey = 'fnet_master_auth';
   static const String _sessionKey = 'fnet_master_session';
   static const String _themeKey = 'fnet_theme';
+  static const String _themeColorKey = 'fnet_theme_color';
   static const String _rememberMeKey = 'fnet_remember_me';
   static const String _savedUsernameKey = 'fnet_saved_username';
   static const String _savedPasswordKey = 'fnet_saved_password';
@@ -119,6 +120,17 @@ class StorageService {
   static Future<void> setTheme(String theme) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_themeKey, theme);
+  }
+
+  // Theme Color (Seed)
+  static Future<String> getThemeColor() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_themeColorKey) ?? 'blue';
+  }
+
+  static Future<void> setThemeColor(String colorKey) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_themeColorKey, colorKey);
   }
 
   // Remember Me Credentials

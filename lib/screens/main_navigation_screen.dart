@@ -7,16 +7,21 @@ import 'pppoe_screen.dart';
 import 'hotspot_screen.dart';
 import 'dhcp_screen.dart';
 import '../widgets/toast_banner.dart';
+import '../theme/fnet_theme.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   final VoidCallback onToggleTheme;
   final bool isDark;
+  final String themeColor;
+  final ValueChanged<String>? onChangeThemeColor;
   final VoidCallback? onLogout;
 
   const MainNavigationScreen({
     super.key,
     required this.onToggleTheme,
     required this.isDark,
+    this.themeColor = 'blue',
+    this.onChangeThemeColor,
     this.onLogout,
   });
 
@@ -24,11 +29,17 @@ class MainNavigationScreen extends StatefulWidget {
   State<MainNavigationScreen> createState() => _MainNavigationScreenState();
 }
 
-class _MainNavigationScreenState extends State<MainNavigationScreen> {
+class _MainNavigationScreenState extends State<MainNavigationScreen> with SingleTickerProviderStateMixin {
   int _currentPageIndex = 0; // Default: Dashboard
   bool _isSearching = false;
   String _appBarSearchQuery = '';
   final TextEditingController _appBarSearchController = TextEditingController();
+
+  late AnimationController _menuEntranceCtrl;
+  late Animation<double> _menuFade;
+  late Animation<Offset> _appBarSlide;
+  late Animation<Offset> _bodySlide;
+  late Animation<Offset> _navBarSlide;
 
   final GlobalKey<BerandaScreenState> _berandaKey = GlobalKey<BerandaScreenState>();
   final GlobalKey<PppoeScreenState> _pppoeKey = GlobalKey<PppoeScreenState>();
@@ -50,10 +61,48 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   void initState() {
     super.initState();
     _loadProfiles();
+
+    // Coordinated menu entrance animation after splash finish
+    _menuEntranceCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 650),
+    );
+
+    _menuFade = CurvedAnimation(
+      parent: _menuEntranceCtrl,
+      curve: const Interval(0.0, 0.75, curve: Curves.easeOut),
+    );
+
+    _appBarSlide = Tween<Offset>(
+      begin: const Offset(0.0, -0.35),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _menuEntranceCtrl,
+      curve: Curves.easeOutCubic,
+    ));
+
+    _bodySlide = Tween<Offset>(
+      begin: const Offset(0.0, 0.04),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _menuEntranceCtrl,
+      curve: const Interval(0.08, 1.0, curve: Curves.easeOutCubic),
+    ));
+
+    _navBarSlide = Tween<Offset>(
+      begin: const Offset(0.0, 0.35),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _menuEntranceCtrl,
+      curve: const Interval(0.05, 1.0, curve: Curves.easeOutCubic),
+    ));
+
+    _menuEntranceCtrl.forward();
   }
 
   @override
   void dispose() {
+    _menuEntranceCtrl.dispose();
     _appBarSearchController.dispose();
     super.dispose();
   }
@@ -137,6 +186,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         return SettingsContentPage(
           onToggleTheme: widget.onToggleTheme,
           isDark: widget.isDark,
+          themeColor: widget.themeColor,
+          onChangeThemeColor: widget.onChangeThemeColor,
           activeProfile: active,
           profiles: _profiles,
           onSwitchProfile: _handleSwitchProfile,
@@ -158,8 +209,14 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      appBar: _isSearching && (_currentPageIndex >= 1 && _currentPageIndex <= 3)
-          ? AppBar(
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(kToolbarHeight),
+        child: SlideTransition(
+          position: _appBarSlide,
+          child: FadeTransition(
+            opacity: _menuFade,
+            child: _isSearching && (_currentPageIndex >= 1 && _currentPageIndex <= 3)
+                ? AppBar(
               titleSpacing: 0,
               leading: IconButton(
                 icon: const Icon(Icons.arrow_back),
@@ -228,7 +285,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
               ),
               actions: [
                 IconButton(
-                  tooltip: 'Urutkan Hasil',
+                  tooltip: 'Urutkan Data',
                   icon: const Icon(Icons.sort_rounded),
                   onPressed: () {
                     switch (_currentPageIndex) {
@@ -248,9 +305,32 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
               ],
             )
           : AppBar(
-              title: Text(
-                _titles[_currentPageIndex],
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              title: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: colorScheme.primaryContainer,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: colorScheme.primary.withValues(alpha: 0.45),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Icon(
+                      Icons.satellite_alt_rounded,
+                      size: 17,
+                      color: colorScheme.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    _currentPageIndex == 0 ? 'MikroTik Manager' : _titles[_currentPageIndex],
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                  ),
+                ],
               ),
               actions: [
                 IconButton(
@@ -325,23 +405,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                   ),
                 if (_currentPageIndex >= 1 && _currentPageIndex <= 3) ...[
                   IconButton(
-                    tooltip: 'Urutkan Data',
-                    icon: const Icon(Icons.sort_rounded),
-                    onPressed: () {
-                      switch (_currentPageIndex) {
-                        case 1:
-                          _pppoeKey.currentState?.showSortOptions();
-                          break;
-                        case 2:
-                          _hotspotKey.currentState?.showSortOptions();
-                          break;
-                        case 3:
-                          _dhcpKey.currentState?.showSortOptions();
-                          break;
-                      }
-                    },
-                  ),
-                  IconButton(
                     tooltip: 'Cari',
                     icon: const Icon(Icons.search),
                     onPressed: () {
@@ -354,44 +417,59 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                 const SizedBox(width: 8),
               ],
             ),
-      body: _buildActivePage(_currentPageIndex, active),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentPageIndex,
-        onDestinationSelected: (int index) {
-          setState(() {
-            _currentPageIndex = index;
-            _isSearching = false;
-            _appBarSearchQuery = '';
-            _appBarSearchController.clear();
-          });
-        },
-        destinations: const <NavigationDestination>[
-          NavigationDestination(
-            icon: Icon(Icons.speed_outlined),
-            selectedIcon: Icon(Icons.speed),
-            label: 'Dashboard',
           ),
-          NavigationDestination(
-            icon: Icon(Icons.group_outlined),
-            selectedIcon: Icon(Icons.group),
-            label: 'PPPoE',
+        ),
+      ),
+      body: SlideTransition(
+        position: _bodySlide,
+        child: FadeTransition(
+          opacity: _menuFade,
+          child: _buildActivePage(_currentPageIndex, active),
+        ),
+      ),
+      bottomNavigationBar: SlideTransition(
+        position: _navBarSlide,
+        child: FadeTransition(
+          opacity: _menuFade,
+          child: NavigationBar(
+            selectedIndex: _currentPageIndex,
+            onDestinationSelected: (int index) {
+              setState(() {
+                _currentPageIndex = index;
+                _isSearching = false;
+                _appBarSearchQuery = '';
+                _appBarSearchController.clear();
+              });
+            },
+            destinations: const <NavigationDestination>[
+              NavigationDestination(
+                icon: Icon(Icons.speed_outlined),
+                selectedIcon: Icon(Icons.speed),
+                label: 'Dashboard',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.group_outlined),
+                selectedIcon: Icon(Icons.group),
+                label: 'PPPoE',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.wifi_outlined),
+                selectedIcon: Icon(Icons.wifi),
+                label: 'Hotspot',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.lan_outlined),
+                selectedIcon: Icon(Icons.lan),
+                label: 'DHCP',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.settings_outlined),
+                selectedIcon: Icon(Icons.settings),
+                label: 'Pengaturan',
+              ),
+            ],
           ),
-          NavigationDestination(
-            icon: Icon(Icons.wifi_outlined),
-            selectedIcon: Icon(Icons.wifi),
-            label: 'Hotspot',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.lan_outlined),
-            selectedIcon: Icon(Icons.lan),
-            label: 'DHCP',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings),
-            label: 'Pengaturan',
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -404,6 +482,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 class SettingsContentPage extends StatefulWidget {
   final VoidCallback onToggleTheme;
   final bool isDark;
+  final String themeColor;
+  final ValueChanged<String>? onChangeThemeColor;
   final RouterProfile? activeProfile;
   final List<RouterProfile> profiles;
   final ValueChanged<String>? onSwitchProfile;
@@ -415,6 +495,8 @@ class SettingsContentPage extends StatefulWidget {
     super.key,
     required this.onToggleTheme,
     required this.isDark,
+    this.themeColor = 'blue',
+    this.onChangeThemeColor,
     this.activeProfile,
     this.profiles = const [],
     this.onSwitchProfile,
@@ -527,6 +609,99 @@ class SettingsContentPageState extends State<SettingsContentPage> {
               ],
             );
           },
+        );
+      },
+    );
+  }
+
+  void _showThemeColorDialog() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) {
+        final theme = Theme.of(ctx);
+        final colorScheme = theme.colorScheme;
+        final bottomInset = MediaQuery.of(ctx).padding.bottom;
+
+        return SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.only(bottom: bottomInset + 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                    child: Row(
+                      children: [
+                        Icon(Icons.palette_outlined, color: colorScheme.primary),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Pilih Tema Warna (Material 3)',
+                          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  RadioGroup<String>(
+                    groupValue: widget.themeColor,
+                    onChanged: (val) {
+                      if (val != null) {
+                        Navigator.pop(ctx);
+                        widget.onChangeThemeColor?.call(val);
+                        final selected = FNetTheme.getPalette(val);
+                        _showNotification('Tema warna diubah ke ${selected.name}.');
+                      }
+                    },
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: FNetTheme.palettes.map((palette) {
+                        final isSelected = widget.themeColor == palette.key;
+                        return RadioListTile<String>(
+                          value: palette.key,
+                          secondary: Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color: palette.seedColor,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: isSelected ? colorScheme.primary : colorScheme.outlineVariant,
+                                width: isSelected ? 2.5 : 1,
+                              ),
+                            ),
+                            child: isSelected
+                                ? const Icon(Icons.check, size: 18, color: Colors.white)
+                                : null,
+                          ),
+                          title: Text(
+                            palette.name,
+                            style: TextStyle(
+                              fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                              fontSize: 14,
+                              color: isSelected ? colorScheme.primary : colorScheme.onSurface,
+                            ),
+                          ),
+                          subtitle: Text(
+                            palette.description,
+                            style: TextStyle(fontSize: 11, color: colorScheme.onSurfaceVariant),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         );
       },
     );
@@ -1060,6 +1235,32 @@ class SettingsContentPageState extends State<SettingsContentPage> {
                 subtitle: const Text('Sesuaikan tema terang/gelap M3'),
                 value: widget.isDark,
                 onChanged: (_) => widget.onToggleTheme(),
+              ),
+              const Divider(height: 1, indent: 16, endIndent: 16),
+              ListTile(
+                leading: const Icon(Icons.palette_outlined),
+                title: const Text('Warna Tema (Material 3)'),
+                subtitle: Text(
+                  FNetTheme.getPalette(widget.themeColor).name,
+                  style: TextStyle(color: colorScheme.onSurfaceVariant),
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 22,
+                      height: 22,
+                      decoration: BoxDecoration(
+                        color: FNetTheme.getSeedColor(widget.themeColor),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: colorScheme.outlineVariant),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Icon(Icons.chevron_right_rounded, size: 20),
+                  ],
+                ),
+                onTap: _showThemeColorDialog,
               ),
               const Divider(height: 1, indent: 16, endIndent: 16),
               SwitchListTile(

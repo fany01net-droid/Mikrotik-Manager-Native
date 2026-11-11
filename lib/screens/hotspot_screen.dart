@@ -1454,18 +1454,6 @@ class HotspotScreenState extends State<HotspotScreen> {
           scrollDirection: Axis.horizontal,
           child: Row(
             children: [
-              OutlinedButton.icon(
-                onPressed: showSortOptions,
-                icon: const Icon(Icons.sort_rounded, size: 16),
-                label: Text('Urut: ${_getSortLabel(_voucherSort)}'),
-                style: OutlinedButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  foregroundColor: colorScheme.primary,
-                  side: BorderSide(color: colorScheme.outlineVariant),
-                ),
-              ),
-              const SizedBox(width: 8),
               _buildFilterButton('all', 'Semua', totalCount, Icons.list_alt, colorScheme),
               const SizedBox(width: 8),
               _buildFilterButton('active', 'Aktif', activeCount, Icons.check_circle_outline, colorScheme),

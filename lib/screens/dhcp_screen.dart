@@ -556,24 +556,12 @@ class DhcpScreenState extends State<DhcpScreen> {
                       controller: _leaseScrollController,
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                       children: [
-                        // Sort & Filter row
-                        SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            children: [
-                              OutlinedButton.icon(
-                                onPressed: showSortOptions,
-                                icon: const Icon(Icons.sort_rounded, size: 16),
-                                label: Text('Urut: ${_getSortLabel(_sortBy)}'),
-                                style: OutlinedButton.styleFrom(
-                                  visualDensity: VisualDensity.compact,
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                  foregroundColor: colorScheme.primary,
-                                  side: BorderSide(color: colorScheme.outlineVariant),
-                                ),
-                              ),
-                              if (servers.length > 1) ...[
-                                const SizedBox(width: 8),
+                        // Server Filter row
+                        if (servers.length > 1) ...[
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: [
                                 _buildServerButton('all', 'Semua Server', colorScheme),
                                 const SizedBox(width: 8),
                                 ...servers.map((s) => Padding(
@@ -581,10 +569,10 @@ class DhcpScreenState extends State<DhcpScreen> {
                                   child: _buildServerButton(s, 'Server: $s', colorScheme),
                                 )),
                               ],
-                            ],
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 10),
+                          const SizedBox(height: 10),
+                        ],
 
                         // Active search indicator (if searched from AppBar)
                               if (_searchQuery.isNotEmpty) ...[

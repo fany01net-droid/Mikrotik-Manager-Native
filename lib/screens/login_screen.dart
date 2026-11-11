@@ -132,12 +132,28 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       backgroundColor: colorScheme.surface,
       appBar: AppBar(
-        title: const Row(
+        title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.router_rounded, size: 22),
-            SizedBox(width: 10),
-            Text(
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: colorScheme.primary.withValues(alpha: 0.45),
+                  width: 1.5,
+                ),
+              ),
+              child: Icon(
+                Icons.satellite_alt_rounded,
+                size: 17,
+                color: colorScheme.primary,
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Text(
               'Mikrotik Manager',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
             ),
@@ -174,11 +190,15 @@ class _LoginScreenState extends State<LoginScreen> {
                       decoration: BoxDecoration(
                         color: colorScheme.primaryContainer,
                         borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                          color: colorScheme.primary.withValues(alpha: 0.4),
+                          width: 2,
+                        ),
                       ),
                       child: Icon(
-                        Icons.router_rounded,
+                        Icons.satellite_alt_rounded,
                         size: 44,
-                        color: colorScheme.onPrimaryContainer,
+                        color: colorScheme.primary,
                       ),
                     ),
                   ),

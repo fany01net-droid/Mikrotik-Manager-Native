@@ -223,10 +223,35 @@ Dokumen ini mencatat riwayat percakapan, keputusan arsitektur, dan evolusi penge
 
 ---
 
+## 🚀 Rilis: Fanny Network Splash Screen, Theme Customizer & Docking Animation
+
+### Fitur & Pembaruan Utama:
+1. **Penyederhanaan Dropdown Paket PPPoE:**
+   - Dropdown "Paket Kecepatan (PPP Profile)" di drawer/modal sheet kini hanya menampilkan nama paket/profil murni (`p.name`) tanpa embel-embel rateLimit berlebih.
+2. **Penyempurnaan Tombol Sort & Search (Antislop UI):**
+   - Menghapus tombol urutkan data yang redundan pada AppBar utama dan baris *badge* filter bawah di PPPoE, Hotspot, dan DHCP.
+   - Opsi pengurutan data kini terintegrasi secara elegan di dalam tampilan search saat icon pencarian diklik.
+3. **Kustomisasi Tema Warna Material 3 (Settings):**
+   - Menambahkan pemilih tema warna M3 di menu **Pengaturan ➔ Tampilan & Notifikasi**.
+   - Tersedia 7 palet warna kurasi M3: *MikroTik Blue (Default), Emerald Green, Teal Cyan, Royal Indigo, Deep Purple, Ruby Crimson, dan Sunset Amber*.
+   - Menggunakan `ColorScheme.fromSeed` dinamis dan tersimpan persisten di `StorageService`.
+4. **Splash Screen Vektor "Satelit ke Bumi ke Rumah-Rumah Warga":**
+   - Visual murni tanpa gambar AI-slop: ilustrasi vektor satelit di orbit memancarkan gelombang sinyal internet stabil ke bumi dan rumah-rumah warga.
+   - Branding resmi: **Fanny Network** dengan tagline **Internet stabil untuk anda**.
+   - 100% adaptif terhadap tema warna terpilih di Pengaturan.
+5. **Animasi Docking & Entrance Menu yang Elegan:**
+   - Animasi akhir splash screen di mana satelit meluncur naik (*glide-up*) dan mengecil secara presisi langsung terhubung (*docking*) ke ikon header **MikroTik Manager**.
+   - Menu AppBar meluncur turun (*slide-down*) dan Bottom Navigation Bar meluncur naik (*slide-up*) secara serentak dan mulus.
+6. **Pembaruan Ikon Aplikasi:**
+   - Ikon master `app_icon.png`, favicon web, PWA icons 192x192 & 512x512, serta Android launcher mipmap diperbarui bertema satelit dan rumah warga.
+
+---
+
 ## 📜 Log Riwayat Git Commit
 
 ```text
 dc4e29b feat: add polling interval setting, data sorting across modules, minimalist DHCP card, and antislop-ui refinements
+1aa6169 docs: update HISTORY.md with latest commit hashes
 e4fbbf8 feat: make interface port grid responsive with full-width cards and centered content
 e987fcb feat: apply antislop UI and copywriting standards, remove redundant profile edit icons
 ff62424 feat: implement hold-to-select deletion on Hotspot and PPPoE profiles
