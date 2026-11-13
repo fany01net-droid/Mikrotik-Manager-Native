@@ -253,6 +253,8 @@ Dokumen ini mencatat riwayat percakapan, keputusan arsitektur, dan evolusi penge
 ## 📜 Log Riwayat Git Commit
 
 ```text
+4c93de3 feat: update official FNet branding, app icons, login screen, and glowing radar pulse splash screen
+c937057 docs: update HISTORY.md with commit 956f557
 956f557 feat: add Fanny Network splash screen with satellite-to-homes vector animation, theme color customizer, and docking transition
 dc4e29b feat: add polling interval setting, data sorting across modules, minimalist DHCP card, and antislop-ui refinements
 1aa6169 docs: update HISTORY.md with latest commit hashes
