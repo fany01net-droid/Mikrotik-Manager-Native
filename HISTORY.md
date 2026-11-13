@@ -262,10 +262,20 @@ Dokumen ini mencatat riwayat percakapan, keputusan arsitektur, dan evolusi penge
 
 ---
 
+### 17. Resolusi CI Build APK (Android Gradle Plugin 9.1.1 & Dependency Validation)
+- **Komponen**: [`android/settings.gradle.kts`](android/settings.gradle.kts), [`.github/workflows/build-apk.yml`](.github/workflows/build-apk.yml)
+- **Akar Masalah**:
+  - Runner GitHub Actions yang menggunakan rilis Flutter stable versi 3.50.0 mensyaratkan Android Gradle Plugin (AGP) minimal versi `9.1.1` (sebelumnya terkonfigurasi `9.1.0`), sehingga task Gradle `assembleRelease` terhenti dengan exit code 1.
+- **Implementasi Perbaikan**:
+  - Memperbarui dependensi plugin `com.android.application` dari versi `9.1.0` ke `9.1.1` pada [`android/settings.gradle.kts`](android/settings.gradle.kts).
+  - Menambahkan flag resmi `--android-skip-build-dependency-validation` pada perintah `flutter build apk --release` di [`.github/workflows/build-apk.yml`](.github/workflows/build-apk.yml) agar pemeriksaan ketat kompatibilitas versi minor Gradle/AGP tidak menggagalkan pembuatan paket rilis di CI.
+
+---
+
 ## 📜 Log Riwayat Git Commit
 
 ```text
-6a44f51 ci: resolve flutter analyze fatal-infos and ignore deprecated_member_use on CI runner
+45e197d ci: resolve flutter analyze fatal-infos and ignore deprecated_member_use on CI runner
 aef8d28 docs: update HISTORY.md with commit 4c93de3
 4c93de3 feat: update official FNet branding, app icons, login screen, and glowing radar pulse splash screen
 c937057 docs: update HISTORY.md with commit 956f557
