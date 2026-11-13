@@ -235,15 +235,18 @@ Dokumen ini mencatat riwayat percakapan, keputusan arsitektur, dan evolusi penge
    - Menambahkan pemilih tema warna M3 di menu **Pengaturan ➔ Tampilan & Notifikasi**.
    - Tersedia 7 palet warna kurasi M3: *MikroTik Blue (Default), Emerald Green, Teal Cyan, Royal Indigo, Deep Purple, Ruby Crimson, dan Sunset Amber*.
    - Menggunakan `ColorScheme.fromSeed` dinamis dan tersimpan persisten di `StorageService`.
-4. **Splash Screen Vektor "Satelit ke Bumi ke Rumah-Rumah Warga":**
-   - Visual murni tanpa gambar AI-slop: ilustrasi vektor satelit di orbit memancarkan gelombang sinyal internet stabil ke bumi dan rumah-rumah warga.
-   - Branding resmi: **Fanny Network** dengan tagline **Internet stabil untuk anda**.
-   - 100% adaptif terhadap tema warna terpilih di Pengaturan.
-5. **Animasi Docking & Entrance Menu yang Elegan:**
-   - Animasi akhir splash screen di mana satelit meluncur naik (*glide-up*) dan mengecil secara presisi langsung terhubung (*docking*) ke ikon header **MikroTik Manager**.
-   - Menu AppBar meluncur turun (*slide-down*) dan Bottom Navigation Bar meluncur naik (*slide-up*) secara serentak dan mulus.
-6. **Pembaruan Ikon Aplikasi:**
-   - Ikon master `app_icon.png`, favicon web, PWA icons 192x192 & 512x512, serta Android launcher mipmap diperbarui bertema satelit dan rumah warga.
+4. **Splash Screen Vektor & Branding Resmi Fanny Network:**
+   - Visual modern dengan logo badge FNet resmi, efek radar gelombang Wi-Fi pulse bercahaya, dan partikel melayang (*ambient floating particles*).
+   - Branding resmi: **Fanny Network** (*MikroTik Network Manager*) dengan tagline **Internet Cepat, Stabil & Terpercaya**.
+   - Fitur interaktif *Tap-to-skip* yang memungkinkan pengguna langsung masuk ke halaman utama/login tanpa menunggu durasi animasi.
+5. **Pembaruan Halaman Login:**
+   - Menyematkan logo badge FNet resmi pada AppBar dan kartu form otentikasi login.
+   - Form otentikasi selaras Material 3 dengan copywriting yang lugas.
+6. **Pembaruan Menyeluruh Ikon Aplikasi & PWA:**
+   - Ikon master `app_icon.png`, favicon web, PWA icons 192x192 & 512x512, serta Android launcher mipmap diperbarui menggunakan logo resmi FNet.
+7. **Peningkatan Widget Testing & Modularitas:**
+   - Penambahan parameter `showSplash` pada `MikrotikManagerApp` untuk fleksibilitas pengujian UI otomatis.
+   - Seluruh 15 unit/widget tests berjalan sukses tanpa kendala.
 
 ---
 

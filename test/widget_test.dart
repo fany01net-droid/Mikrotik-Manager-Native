@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fnet/main.dart';
 import 'package:fnet/models/mikrotik_models.dart';
 import 'package:fnet/screens/dhcp_screen.dart';
+import 'package:fnet/screens/splash_screen.dart';
 import 'package:fnet/widgets/loading_indicator_m3e.dart';
 import 'package:fnet/widgets/user_card_m3.dart';
 
@@ -11,17 +12,25 @@ void main() {
     await tester.pumpWidget(const MikrotikManagerApp(
       initialLoggedIn: false,
       initialTheme: 'dark',
+      showSplash: false,
     ));
+    await tester.pumpAndSettle();
 
     expect(find.text('Mikrotik Manager'), findsWidgets);
-    expect(find.text('Anda harus masuk untuk mengakses aplikasi.'), findsOneWidget);
-    expect(find.text('Sign In'), findsOneWidget);
+    expect(find.text('Masuk untuk mengelola router MikroTik.'), findsOneWidget);
+    expect(find.text('Masuk'), findsOneWidget);
   });
 
   testWidgets('MikrotikManagerApp loads main navigation and home content when logged in', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(800, 1000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     await tester.pumpWidget(const MikrotikManagerApp(
       initialLoggedIn: true,
       initialTheme: 'dark',
+      showSplash: false,
     ));
 
     expect(find.text('Dashboard'), findsWidgets);
@@ -30,6 +39,9 @@ void main() {
     expect(find.text('DHCP'), findsWidgets);
     expect(find.text('Pengaturan'), findsWidgets);
     expect(find.text('Memuat data Dashboard...'), findsOneWidget);
+
+    // Let menu entrance animation settle so bottom navigation bar is in position
+    await tester.pump(const Duration(milliseconds: 700));
 
     // Switch to Pengaturan tab
     await tester.tap(find.text('Pengaturan').last);
@@ -52,7 +64,9 @@ void main() {
     await tester.pumpWidget(const MikrotikManagerApp(
       initialLoggedIn: true,
       initialTheme: 'dark',
+      showSplash: false,
     ));
+    await tester.pump(const Duration(milliseconds: 700));
 
     await tester.tap(find.text('Pengaturan').last);
     await tester.pumpAndSettle();
@@ -88,7 +102,9 @@ void main() {
     await tester.pumpWidget(const MikrotikManagerApp(
       initialLoggedIn: true,
       initialTheme: 'dark',
+      showSplash: false,
     ));
+    await tester.pump(const Duration(milliseconds: 700));
 
     // Tap PPPoE tab - verify while loading
     await tester.tap(find.text('PPPoE').last);
@@ -133,7 +149,9 @@ void main() {
     await tester.pumpWidget(const MikrotikManagerApp(
       initialLoggedIn: true,
       initialTheme: 'dark',
+      showSplash: false,
     ));
+    await tester.pump(const Duration(milliseconds: 700));
 
     // On Dashboard, theme icon is not in AppBar
     expect(find.byIcon(Icons.dark_mode_outlined), findsNothing);
@@ -198,5 +216,27 @@ void main() {
 
     await tester.longPress(find.text('test_user'));
     expect(longPressed, isTrue);
+  });
+
+  testWidgets('SplashScreen renders FNet brand, badge, and finishes on tap', (WidgetTester tester) async {
+    bool finished = false;
+    await tester.pumpWidget(MaterialApp(
+      home: SplashScreen(
+        onFinish: () => finished = true,
+        themeColor: 'blue',
+        isDark: true,
+      ),
+    ));
+
+    expect(find.text('Fanny Network'), findsOneWidget);
+    expect(find.text('MikroTik Network Manager'), findsOneWidget);
+    expect(find.text('Internet Cepat, Stabil & Terpercaya'), findsOneWidget);
+    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+
+    // Tap to skip
+    await tester.tap(find.byType(SplashScreen));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(finished, isTrue);
   });
 }

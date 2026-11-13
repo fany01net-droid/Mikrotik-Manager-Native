@@ -135,21 +135,26 @@ class _LoginScreenState extends State<LoginScreen> {
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: colorScheme.primaryContainer,
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: colorScheme.primary.withValues(alpha: 0.45),
-                  width: 1.5,
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.asset(
+                'assets/icons/fnet_logo_badge.png',
+                width: 30,
+                height: 30,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: colorScheme.primaryContainer,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.satellite_alt_rounded,
+                    size: 16,
+                    color: colorScheme.primary,
+                  ),
                 ),
-              ),
-              child: Icon(
-                Icons.satellite_alt_rounded,
-                size: 17,
-                color: colorScheme.primary,
               ),
             ),
             const SizedBox(width: 10),
@@ -188,17 +193,32 @@ class _LoginScreenState extends State<LoginScreen> {
                       width: 80,
                       height: 80,
                       decoration: BoxDecoration(
-                        color: colorScheme.primaryContainer,
+                        color: Colors.white,
                         borderRadius: BorderRadius.circular(24),
                         border: Border.all(
-                          color: colorScheme.primary.withValues(alpha: 0.4),
-                          width: 2,
+                          color: colorScheme.outlineVariant.withValues(alpha: 0.4),
+                          width: 1.5,
                         ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: colorScheme.primary.withValues(
+                              alpha: widget.isDark ? 0.25 : 0.1,
+                            ),
+                            blurRadius: 16,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
-                      child: Icon(
-                        Icons.satellite_alt_rounded,
-                        size: 44,
-                        color: colorScheme.primary,
+                      clipBehavior: Clip.antiAlias,
+                      padding: const EdgeInsets.all(8),
+                      child: Image.asset(
+                        'assets/icons/fnet_logo_badge.png',
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) => Icon(
+                          Icons.satellite_alt_rounded,
+                          size: 44,
+                          color: colorScheme.primary,
+                        ),
                       ),
                     ),
                   ),

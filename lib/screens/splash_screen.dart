@@ -1,12 +1,12 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../theme/fnet_theme.dart';
 
 /// Clean, Handcrafted Material 3 Splash Screen for Fanny Network
 /// Visual Concept:
-/// 1. Satelit di orbit memancarkan sinyal internet stabil ke bumi ke rumah-rumah warga.
-/// 2. Warna 100% ADAPTIF mengikuti pengaturan tema warna Material 3 pilihan pengguna.
-/// 3. Animasi keluar (exit sequence) meluncur naik dan docking ke icon MikroTik Manager di AppBar.
+/// 1. Logo FNet (Letter F Google Palette + Satelit + Gelombang Sinyal Wi-Fi).
+/// 2. Warna 100% ADAPTIF mengikuti pengaturan tema warna Material 3 pengguna.
+/// 3. Gelombang sinyal Wi-Fi dinamis berdenyut memancar dari satelit orbit.
+/// 4. Animasi transisi halus menuju layar utama/login dengan fitur ketuk untuk lewati.
 class SplashScreen extends StatefulWidget {
   final VoidCallback onFinish;
   final String themeColor;
@@ -30,100 +30,56 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
   late Animation<double> _enterFade;
   late Animation<double> _enterScale;
   late Animation<double> _progressAnim;
-
-  // Exit Docking Animations:
-  late Animation<double> _groundFade;
-  late Animation<Offset> _groundSlide;
-  late Animation<double> _textFade;
-  late Animation<Offset> _satelliteGlide;
-  late Animation<double> _satelliteScale;
-  late Animation<double> _dockingAura;
+  late Animation<double> _exitFade;
+  late Animation<double> _exitScale;
 
   @override
   void initState() {
     super.initState();
 
-    // 1. Continuous signal wave pulses from satellite to homes
+    // 1. Continuous Wi-Fi signal & breathing pulse
     _pulseCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2000),
+      duration: const Duration(milliseconds: 2200),
     )..repeat();
 
-    // 2. Master timeline
+    // 2. Main timeline controller (1800ms)
     _timelineCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1600),
+      duration: const Duration(milliseconds: 1800),
     );
 
-    // Entrance: 0ms -> 480ms
+    // Entrance sequence (0 -> 450ms)
     _enterFade = CurvedAnimation(
       parent: _timelineCtrl,
-      curve: const Interval(0.0, 0.32, curve: Curves.easeOut),
+      curve: const Interval(0.0, 0.30, curve: Curves.easeOut),
     );
-    _enterScale = Tween<double>(begin: 0.94, end: 1.0).animate(
+    _enterScale = Tween<double>(begin: 0.85, end: 1.0).animate(
       CurvedAnimation(
         parent: _timelineCtrl,
-        curve: const Interval(0.0, 0.38, curve: Curves.easeOutCubic),
+        curve: const Interval(0.0, 0.38, curve: Curves.easeOutBack),
       ),
     );
 
-    // Progress bar fill: 200ms -> 1200ms
+    // Progress bar fill (200ms -> 1500ms)
     _progressAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _timelineCtrl,
-        curve: const Interval(0.15, 0.78, curve: Curves.easeInOutCubic),
+        curve: const Interval(0.12, 0.86, curve: Curves.easeInOutCubic),
       ),
     );
 
-    // 3. Exit Sequence (Docking into MikroTik Manager icon): 1200ms -> 1600ms
-    // Ground & homes sink and fade
-    _groundFade = Tween<double>(begin: 1.0, end: 0.0).animate(
+    // Exit transition (1500ms -> 1800ms)
+    _exitFade = Tween<double>(begin: 1.0, end: 0.0).animate(
       CurvedAnimation(
         parent: _timelineCtrl,
-        curve: const Interval(0.76, 0.92, curve: Curves.easeIn),
+        curve: const Interval(0.86, 1.0, curve: Curves.easeIn),
       ),
     );
-    _groundSlide = Tween<Offset>(
-      begin: Offset.zero,
-      end: const Offset(0.0, 0.08),
-    ).animate(
+    _exitScale = Tween<double>(begin: 1.0, end: 1.05).animate(
       CurvedAnimation(
         parent: _timelineCtrl,
-        curve: const Interval(0.76, 0.95, curve: Curves.easeInCubic),
-      ),
-    );
-
-    // Text & progress line fade away
-    _textFade = Tween<double>(begin: 1.0, end: 0.0).animate(
-      CurvedAnimation(
-        parent: _timelineCtrl,
-        curve: const Interval(0.75, 0.88, curve: Curves.easeIn),
-      ),
-    );
-
-    // Satellite glides upward toward AppBar icon position and contracts into compact emblem
-    _satelliteGlide = Tween<Offset>(
-      begin: Offset.zero,
-      end: const Offset(0.0, -0.38),
-    ).animate(
-      CurvedAnimation(
-        parent: _timelineCtrl,
-        curve: const Interval(0.78, 1.0, curve: Curves.easeInOutCubic),
-      ),
-    );
-
-    _satelliteScale = Tween<double>(begin: 1.0, end: 0.36).animate(
-      CurvedAnimation(
-        parent: _timelineCtrl,
-        curve: const Interval(0.80, 1.0, curve: Curves.easeInOutCubic),
-      ),
-    );
-
-    // Docking circular aura emerges around the satellite as it reaches the top
-    _dockingAura = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _timelineCtrl,
-        curve: const Interval(0.84, 1.0, curve: Curves.easeOut),
+        curve: const Interval(0.86, 1.0, curve: Curves.easeInCubic),
       ),
     );
 
@@ -144,8 +100,30 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
   }
 
   void _skip() {
-    if (_timelineCtrl.value < 0.78) {
-      _timelineCtrl.animateTo(1.0, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+    if (_timelineCtrl.value < 0.86) {
+      _timelineCtrl
+          .animateTo(
+            1.0,
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeInOut,
+          )
+          .then((_) {
+            if (mounted) {
+              widget.onFinish();
+            }
+          });
+    }
+  }
+
+  String _getStatusText(double progress) {
+    if (progress < 0.30) {
+      return 'Menginisialisasi modul FNet...';
+    } else if (progress < 0.65) {
+      return 'Memeriksa profil MikroTik...';
+    } else if (progress < 0.90) {
+      return 'Menyiapkan koneksi aman...';
+    } else {
+      return 'Siap!';
     }
   }
 
@@ -159,185 +137,245 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     );
 
     final bgSurface = widget.isDark
-        ? Color.alphaBlend(colorScheme.primary.withValues(alpha: 0.07), const Color(0xFF090D16))
-        : colorScheme.surface;
+        ? Color.alphaBlend(colorScheme.primary.withValues(alpha: 0.06), const Color(0xFF0C1017))
+        : Color.alphaBlend(colorScheme.primary.withValues(alpha: 0.03), const Color(0xFFF8FAFC));
     final primaryColor = colorScheme.primary;
-    final tertiaryColor = colorScheme.tertiary;
 
     return GestureDetector(
       onTap: _skip,
       behavior: HitTestBehavior.opaque,
       child: Scaffold(
         backgroundColor: bgSurface,
-        body: Center(
+        body: SafeArea(
           child: AnimatedBuilder(
             animation: Listenable.merge([_pulseCtrl, _timelineCtrl]),
             builder: (context, _) {
-              final enterOpacity = _enterFade.value;
+              final overallOpacity = (_enterFade.value * _exitFade.value).clamp(0.0, 1.0);
+              final overallScale = _enterScale.value * _exitScale.value;
+              final progress = _progressAnim.value;
 
               return Opacity(
-                opacity: enterOpacity,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // ==========================================
-                    // 1. Satellite Emblem (Glides UP toward AppBar icon)
-                    // ==========================================
-                    SlideTransition(
-                      position: _satelliteGlide,
-                      child: Transform.scale(
-                        scale: _enterScale.value * _satelliteScale.value,
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            // Circular docking aura indicator (appears during exit glide)
-                            Opacity(
-                              opacity: _dockingAura.value,
-                              child: Container(
-                                width: 90,
-                                height: 90,
-                                decoration: BoxDecoration(
-                                  color: colorScheme.primaryContainer.withValues(alpha: 0.8),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: primaryColor,
-                                    width: 3,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: primaryColor.withValues(alpha: 0.5),
-                                      blurRadius: 18,
-                                      spreadRadius: 3,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-
-                            // Satellite & Pulse Waves Vector Canvas
-                            SizedBox(
-                              width: 240,
-                              height: 100,
-                              child: CustomPaint(
-                                painter: _SatelliteFlightPainter(
-                                  pulseProgress: _pulseCtrl.value,
-                                  primaryColor: primaryColor,
-                                  accentColor: tertiaryColor,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    // ==========================================
-                    // 2. Earth Horizon & Homes (Fades & sinks during exit)
-                    // ==========================================
-                    SlideTransition(
-                      position: _groundSlide,
-                      child: Opacity(
-                        opacity: _groundFade.value,
-                        child: SizedBox(
-                          width: 260,
-                          height: 90,
-                          child: CustomPaint(
-                            painter: _HomesGroundPainter(
-                              pulseProgress: _pulseCtrl.value,
-                              primaryColor: primaryColor,
-                              accentColor: tertiaryColor,
-                              isDark: widget.isDark,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // ==========================================
-                    // 3. Brand Text & Progress Track (Fades out cleanly)
-                    // ==========================================
-                    Opacity(
-                      opacity: _textFade.value,
+                opacity: overallOpacity,
+                child: Center(
+                  child: SingleChildScrollView(
+                    physics: const NeverScrollableScrollPhysics(),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
                       child: Column(
-                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          // Brand Title
-                          Text(
-                            'Fanny Network',
-                            style: TextStyle(
-                              fontSize: 30,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 0.8,
-                              color: widget.isDark ? Colors.white : colorScheme.onSurface,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-
-                          // Tagline with Adaptive Accent Dot
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 7,
-                                height: 7,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: tertiaryColor,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: tertiaryColor.withValues(alpha: 0.6),
-                                      blurRadius: 6,
-                                      spreadRadius: 1,
+                          // ==========================================
+                          // 1. Central FNet Logo with Dynamic Wi-Fi Waves
+                          // ==========================================
+                          Transform.scale(
+                            scale: overallScale,
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                // Concentric Animated Wi-Fi Wave Ripples
+                                SizedBox(
+                                  width: 250,
+                                  height: 250,
+                                  child: CustomPaint(
+                                    painter: _WifiPulsePainter(
+                                      pulseProgress: _pulseCtrl.value,
+                                      pulseColor: primaryColor,
                                     ),
-                                  ],
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Internet stabil untuk anda',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                  letterSpacing: 0.3,
-                                  color: widget.isDark ? Colors.white70 : colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 30),
 
-                          // Adaptive Theme Progress Track
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(4),
-                            child: Container(
-                              width: 140,
-                              height: 3,
-                              color: widget.isDark
-                                  ? Colors.white.withValues(alpha: 0.08)
-                                  : colorScheme.outlineVariant.withValues(alpha: 0.3),
-                              alignment: Alignment.centerLeft,
-                              child: FractionallySizedBox(
-                                widthFactor: _progressAnim.value,
-                                child: Container(
+                                // Ambient soft glow container
+                                Container(
+                                  width: 154,
+                                  height: 154,
                                   decoration: BoxDecoration(
-                                    color: primaryColor,
-                                    borderRadius: BorderRadius.circular(4),
+                                    shape: BoxShape.circle,
                                     boxShadow: [
                                       BoxShadow(
-                                        color: primaryColor.withValues(alpha: 0.4),
-                                        blurRadius: 6,
+                                        color: primaryColor.withValues(
+                                          alpha: widget.isDark ? 0.35 : 0.15,
+                                        ),
+                                        blurRadius: 36,
+                                        spreadRadius: 8,
                                       ),
                                     ],
                                   ),
                                 ),
+
+                                // Logo Squircle Badge
+                                Card(
+                                  elevation: widget.isDark ? 8 : 3,
+                                  shadowColor: primaryColor.withValues(
+                                    alpha: widget.isDark ? 0.4 : 0.2,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(36),
+                                  ),
+                                  color: Colors.white,
+                                  clipBehavior: Clip.antiAlias,
+                                  child: Container(
+                                    width: 144,
+                                    height: 144,
+                                    padding: const EdgeInsets.all(12),
+                                    child: Image.asset(
+                                      'assets/icons/fnet_logo_badge.png',
+                                      fit: BoxFit.contain,
+                                      errorBuilder: (context, error, stackTrace) {
+                                        // Graceful fallback if asset cache takes a moment
+                                        return Icon(
+                                          Icons.satellite_alt_rounded,
+                                          size: 64,
+                                          color: primaryColor,
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 32),
+
+                          // ==========================================
+                          // 2. Brand Name & Identity
+                          // ==========================================
+                          Text(
+                            'Fanny Network',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 30,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.6,
+                              color: widget.isDark ? Colors.white : colorScheme.onSurface,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+
+                          // Material 3 Badge / Pill Chip
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: colorScheme.primaryContainer.withValues(
+                                alpha: widget.isDark ? 0.45 : 0.65,
                               ),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: colorScheme.outlineVariant.withValues(
+                                  alpha: widget.isDark ? 0.35 : 0.5,
+                                ),
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                // Pulsing green online beacon
+                                Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: const Color(0xFF34A853),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(0xFF34A853).withValues(
+                                          alpha: 0.4 + (_pulseCtrl.value * 0.4),
+                                        ),
+                                        blurRadius: 6,
+                                        spreadRadius: 1,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'MikroTik Network Manager',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 0.4,
+                                    color: colorScheme.onPrimaryContainer,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 8),
+
+                          // Tagline
+                          Text(
+                            'Internet Cepat, Stabil & Terpercaya',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: 0.3,
+                              color: widget.isDark
+                                  ? Colors.white70
+                                  : colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+
+                          const SizedBox(height: 36),
+
+                          // ==========================================
+                          // 3. Material 3 Linear Progress Track & Status
+                          // ==========================================
+                          SizedBox(
+                            width: 170,
+                            child: Column(
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: SizedBox(
+                                    height: 4,
+                                    child: LinearProgressIndicator(
+                                      value: progress,
+                                      backgroundColor: widget.isDark
+                                          ? Colors.white.withValues(alpha: 0.1)
+                                          : colorScheme.outlineVariant.withValues(alpha: 0.35),
+                                      valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  _getStatusText(progress),
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: widget.isDark
+                                        ? Colors.white60
+                                        : colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 48),
+
+                          // ==========================================
+                          // 4. Subtle Footer
+                          // ==========================================
+                          Text(
+                            'FNet v1.0.0 • MikroTik RouterOS',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w400,
+                              letterSpacing: 0.5,
+                              color: widget.isDark
+                                  ? Colors.white30
+                                  : colorScheme.outline.withValues(alpha: 0.6),
                             ),
                           ),
                         ],
                       ),
                     ),
-                  ],
+                  ),
                 ),
               );
             },
@@ -348,24 +386,21 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
   }
 }
 
-/// Upper Canvas: Satellite in Orbit with Solar Panels, Dish, and Downward Pulse Waves
-class _SatelliteFlightPainter extends CustomPainter {
+/// Custom Painter: Dynamic concentric Wi-Fi / orbital pulse waves radiating from emblem
+class _WifiPulsePainter extends CustomPainter {
   final double pulseProgress;
-  final Color primaryColor;
-  final Color accentColor;
+  final Color pulseColor;
 
-  _SatelliteFlightPainter({
+  _WifiPulsePainter({
     required this.pulseProgress,
-    required this.primaryColor,
-    required this.accentColor,
+    required this.pulseColor,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     final cx = size.width / 2;
-    const cy = 34.0;
+    final cy = size.height / 2;
 
-    // 1. Cascading Signal Waves expanding downward
     final wavePaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.8
@@ -373,195 +408,16 @@ class _SatelliteFlightPainter extends CustomPainter {
 
     for (int i = 0; i < 3; i++) {
       final p = (pulseProgress + (i * 0.33)) % 1.0;
-      final radius = 16.0 + (p * 55.0);
-      final alpha = ((1.0 - p) * 0.70).clamp(0.0, 1.0);
-      wavePaint.color = primaryColor.withValues(alpha: alpha);
+      final radius = 78.0 + (p * 45.0);
+      final alpha = ((1.0 - p) * 0.40).clamp(0.0, 1.0);
+      wavePaint.color = pulseColor.withValues(alpha: alpha);
 
-      final rect = Rect.fromCircle(center: Offset(cx, cy + 12), radius: radius);
-      canvas.drawArc(rect, 0.30 * math.pi, 0.40 * math.pi, false, wavePaint);
+      canvas.drawCircle(Offset(cx, cy), radius, wavePaint);
     }
-
-    // 2. Solar Panels Left & Right
-    final panelBg = Paint()..color = primaryColor.withValues(alpha: 0.88);
-    final panelBorder = Paint()
-      ..color = primaryColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2;
-    final gridLine = Paint()
-      ..color = Colors.white.withValues(alpha: 0.55)
-      ..strokeWidth = 0.8;
-
-    // Left Panel
-    final leftRect = Rect.fromLTWH(cx - 52, cy - 9, 22, 18);
-    canvas.drawRRect(RRect.fromRectAndRadius(leftRect, const Radius.circular(3)), panelBg);
-    canvas.drawRRect(RRect.fromRectAndRadius(leftRect, const Radius.circular(3)), panelBorder);
-    canvas.drawLine(Offset(cx - 41, cy - 9), Offset(cx - 41, cy + 9), gridLine);
-    canvas.drawLine(Offset(cx - 52, cy), Offset(cx - 30, cy), gridLine);
-
-    // Right Panel
-    final rightRect = Rect.fromLTWH(cx + 30, cy - 9, 22, 18);
-    canvas.drawRRect(RRect.fromRectAndRadius(rightRect, const Radius.circular(3)), panelBg);
-    canvas.drawRRect(RRect.fromRectAndRadius(rightRect, const Radius.circular(3)), panelBorder);
-    canvas.drawLine(Offset(cx + 41, cy - 9), Offset(cx + 41, cy + 9), gridLine);
-    canvas.drawLine(Offset(cx + 30, cy), Offset(cx + 52, cy), gridLine);
-
-    // Connecting Truss
-    final trussPaint = Paint()
-      ..color = primaryColor.withValues(alpha: 0.75)
-      ..strokeWidth = 2.0;
-    canvas.drawLine(Offset(cx - 30, cy), Offset(cx + 30, cy), trussPaint);
-
-    // 3. Central Satellite Body
-    final bodyPaint = Paint()..color = Colors.white;
-    final bodyStroke = Paint()
-      ..color = primaryColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
-    final bodyRect = Rect.fromCenter(center: Offset(cx, cy), width: 22, height: 30);
-    canvas.drawRRect(RRect.fromRectAndRadius(bodyRect, const Radius.circular(6)), bodyPaint);
-    canvas.drawRRect(RRect.fromRectAndRadius(bodyRect, const Radius.circular(6)), bodyStroke);
-
-    // Core Beacon (Adaptive Accent)
-    canvas.drawCircle(Offset(cx, cy), 3.8, Paint()..color = accentColor);
-
-    // Dish Antenna
-    final dishPaint = Paint()
-      ..color = primaryColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0
-      ..strokeCap = StrokeCap.round;
-    final dishRect = Rect.fromCircle(center: Offset(cx, cy + 12), radius: 9);
-    canvas.drawArc(dishRect, 0.22 * math.pi, 0.56 * math.pi, false, dishPaint);
-
-    final dishRod = Paint()..color = primaryColor..strokeWidth = 1.4;
-    canvas.drawLine(Offset(cx, cy + 12), Offset(cx, cy + 17), dishRod);
-    canvas.drawCircle(Offset(cx, cy + 17), 1.6, Paint()..color = primaryColor);
   }
 
   @override
-  bool shouldRepaint(covariant _SatelliteFlightPainter oldDelegate) => true;
-}
-
-/// Lower Canvas: Earth Horizon and Houses of Residents Receiving Stable Internet
-class _HomesGroundPainter extends CustomPainter {
-  final double pulseProgress;
-  final Color primaryColor;
-  final Color accentColor;
-  final bool isDark;
-
-  _HomesGroundPainter({
-    required this.pulseProgress,
-    required this.primaryColor,
-    required this.accentColor,
-    required this.isDark,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-    final cx = w / 2;
-    final earthY = h - 22.0;
-
-    // 1. Earth Horizon Curve
-    final earthPaint = Paint()
-      ..color = primaryColor.withValues(alpha: isDark ? 0.20 : 0.12)
-      ..style = PaintingStyle.fill;
-    final earthPath = Path()
-      ..moveTo(0, h)
-      ..lineTo(0, earthY + 12)
-      ..quadraticBezierTo(cx, earthY - 8, w, earthY + 12)
-      ..lineTo(w, h)
-      ..close();
-    canvas.drawPath(earthPath, earthPaint);
-
-    final earthStroke = Paint()
-      ..color = primaryColor.withValues(alpha: 0.40)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.4;
-    final earthArc = Path()
-      ..moveTo(0, earthY + 12)
-      ..quadraticBezierTo(cx, earthY - 8, w, earthY + 12);
-    canvas.drawPath(earthArc, earthStroke);
-
-    // 2. Homes on Earth
-    final wallPaint = Paint()
-      ..color = isDark ? const Color(0xFFE2E8F0) : const Color(0xFF334155);
-    final roofPaint = Paint()..color = primaryColor;
-    final accentPaint = Paint()..color = accentColor;
-    final antennaStroke = Paint()
-      ..color = primaryColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2;
-
-    // Left Home (House 1)
-    final h1x = cx - 64;
-    final h1y = earthY - 4;
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(Rect.fromLTWH(h1x - 12, h1y - 16, 24, 18), const Radius.circular(2)),
-      wallPaint,
-    );
-    final h1Roof = Path()
-      ..moveTo(h1x - 15, h1y - 16)
-      ..lineTo(h1x, h1y - 27)
-      ..lineTo(h1x + 15, h1y - 16)
-      ..close();
-    canvas.drawPath(h1Roof, roofPaint);
-    canvas.drawLine(Offset(h1x, h1y - 27), Offset(h1x, h1y - 34), antennaStroke);
-    canvas.drawCircle(Offset(h1x, h1y - 34), 2.2, accentPaint);
-
-    // Center Home (House 2 - Starlink Dish)
-    final h2x = cx;
-    final h2y = earthY - 7;
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(Rect.fromLTWH(h2x - 16, h2y - 22, 32, 24), const Radius.circular(2.5)),
-      wallPaint,
-    );
-    final h2Roof = Path()
-      ..moveTo(h2x - 20, h2y - 22)
-      ..lineTo(h2x, h2y - 36)
-      ..lineTo(h2x + 20, h2y - 22)
-      ..close();
-    canvas.drawPath(h2Roof, roofPaint);
-
-    // Door & Windows
-    final doorPaint = Paint()..color = isDark ? const Color(0xFF0F172A) : Colors.white;
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(Rect.fromLTWH(h2x - 4, h2y - 11, 8, 13), const Radius.circular(1.5)),
-      doorPaint,
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(Rect.fromLTWH(h2x - 12, h2y - 17, 6, 6), const Radius.circular(1)),
-      accentPaint,
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(Rect.fromLTWH(h2x + 6, h2y - 17, 6, 6), const Radius.circular(1)),
-      accentPaint,
-    );
-
-    // Dish Antenna on Roof
-    final dishRect = Rect.fromCircle(center: Offset(h2x + 8, h2y - 38), radius: 6);
-    canvas.drawArc(dishRect, 1.2 * math.pi, 0.7 * math.pi, false, antennaStroke);
-    canvas.drawLine(Offset(h2x + 8, h2y - 34), Offset(h2x + 8, h2y - 28), antennaStroke);
-    canvas.drawCircle(Offset(h2x + 8, h2y - 40), 2.8, accentPaint);
-
-    // Right Home (House 3)
-    final h3x = cx + 64;
-    final h3y = earthY - 4;
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(Rect.fromLTWH(h3x - 13, h3y - 17, 26, 19), const Radius.circular(2)),
-      wallPaint,
-    );
-    final h3Roof = Path()
-      ..moveTo(h3x - 16, h3y - 17)
-      ..lineTo(h3x + 16, h3y - 28)
-      ..lineTo(h3x + 16, h3y - 17)
-      ..close();
-    canvas.drawPath(h3Roof, roofPaint);
-    canvas.drawLine(Offset(h3x + 12, h3y - 28), Offset(h3x + 12, h3y - 35), antennaStroke);
-    canvas.drawCircle(Offset(h3x + 12, h3y - 35), 2.2, accentPaint);
+  bool shouldRepaint(covariant _WifiPulsePainter oldDelegate) {
+    return oldDelegate.pulseProgress != pulseProgress || oldDelegate.pulseColor != pulseColor;
   }
-
-  @override
-  bool shouldRepaint(covariant _HomesGroundPainter oldDelegate) => true;
 }

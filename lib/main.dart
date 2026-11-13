@@ -26,12 +26,14 @@ class MikrotikManagerApp extends StatefulWidget {
   final bool initialLoggedIn;
   final String initialTheme;
   final String initialThemeColor;
+  final bool showSplash;
 
   const MikrotikManagerApp({
     super.key,
     this.initialLoggedIn = false,
     this.initialTheme = 'system',
     this.initialThemeColor = 'blue',
+    this.showSplash = true,
   });
 
   @override
@@ -42,7 +44,7 @@ class _MikrotikManagerAppState extends State<MikrotikManagerApp> {
   late bool _isLoggedIn;
   late bool _isDark;
   late String _currentColor;
-  bool _showSplash = true;
+  late bool _showSplash;
 
   @override
   void initState() {
@@ -50,6 +52,7 @@ class _MikrotikManagerAppState extends State<MikrotikManagerApp> {
     _isLoggedIn = widget.initialLoggedIn;
     _isDark = widget.initialTheme != 'light';
     _currentColor = widget.initialThemeColor;
+    _showSplash = widget.showSplash;
     _applySystemOverlay();
   }
 
